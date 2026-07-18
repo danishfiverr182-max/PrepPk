@@ -11,7 +11,7 @@
  * category objects including any per-user access flags.
  */
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import api from "../../api/axios";
 
@@ -60,8 +60,16 @@ export function PublicCategoriesProvider({ children }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Memoized so the many consumers of this context across the public site
+  // only re-render when the categories data actually changes, not on every
+  // render of this provider.
+  const value = useMemo(
+    () => ({ categories, loading, error }),
+    [categories, loading, error]
+  );
+
   return (
-    <PublicCategoriesContext.Provider value={{ categories, loading, error }}>
+    <PublicCategoriesContext.Provider value={value}>
       {children}
     </PublicCategoriesContext.Provider>
   );

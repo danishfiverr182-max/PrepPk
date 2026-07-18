@@ -96,7 +96,7 @@ export default function PremiumPopup({ onClose, onLoginClick, intent = null }) {
         <div className="px-6 py-7 relative text-center bg-brand/10 border-b border-slate-200 dark:border-white/10 dark:bg-brand/20">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-white/50 dark:hover:text-white transition text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full dark:hover:bg-white/10"
+            className="absolute top-4 right-4 z-20 text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-white/50 dark:hover:text-white transition text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full dark:hover:bg-white/10"
           >
             ×
           </button>

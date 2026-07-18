@@ -13,13 +13,14 @@
  *     instead of relying on min-h + flex-stretch chains that silently collapse.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../../api/axios";
 import McqImage from "../../public/components/McqImage";
 import safeStorage from "../../public/utils/safeStorage";
-import { useTimer, clearTimerStorage } from "../../hooks/useTimer";
+import { clearTimerStorage } from "../../hooks/useTimer";
 import TimerDisplay from "../../components/user/TimerDisplay";
+import { FaTriangleExclamation } from "react-icons/fa6";
 
 const LS_KEY = (testId) => `premiumTest_${testId}`;
 
@@ -146,7 +147,17 @@ function OptionCard({ label, text, selected, onClick, index }) {
 }
 
 // ── Sidebar Grid Navigator ────────────────────────────────────
-function GridNavigator({ total, current, answers, onJump }) {
+// Wrapped in memo: TakeTestPage re-renders every second (timer tick), but
+// this grid's props (total/current/answers/onJump) only actually change
+// when the user navigates or answers a question. Without memo, every
+// second re-creates and re-diffs every question button in this grid —
+// noticeable jank on longer tests / lower-end phones.
+const GridNavigator = memo(function GridNavigator({
+  total,
+  current,
+  answers,
+  onJump,
+}) {
   return (
     <div className="grid grid-cols-5 gap-2 max-w-full">
       {Array.from({ length: total }, (_, i) => {
@@ -178,7 +189,7 @@ function GridNavigator({ total, current, answers, onJump }) {
       })}
     </div>
   );
-}
+});
 
 // ── Collapsible mobile navigation drawer ───────────────────────
 function NavDrawer({ isOpen, onClose, total, current, answers, onJump }) {
@@ -455,14 +466,9 @@ export default function TakeTestPage() {
     };
   }, [testId, sectionKey, retryCount]);
 
-  // ── useTimer logic ───────────────────────────────────────────
+  // ── Timer config (ticking itself now lives inside <TimerDisplay>,
+  //    so a per-second update no longer re-renders this whole page) ──
   const timerReady = totalSeconds !== null;
-  const { secondsLeft, formattedTime } = useTimer({
-    totalSeconds: timerReady ? totalSeconds : 0,
-    timerKey: timerKeyRef.current,
-    onExpire: timerReady ? handleAutoSubmit : undefined,
-    enabled: timerReady,
-  });
 
   const total = mcqs.length;
   const currentMcq = mcqs[currentIndex] ?? null;
@@ -575,8 +581,10 @@ export default function TakeTestPage() {
         {/* Dynamic Timer BADGE */}
         {timerReady && (
           <TimerDisplay
-            formattedTime={formattedTime}
-            secondsLeft={secondsLeft}
+            totalSeconds={totalSeconds}
+            timerKey={timerKeyRef.current}
+            onExpire={handleAutoSubmit}
+            enabled={timerReady}
             inline={true}
           />
         )}
@@ -819,7 +827,9 @@ export default function TakeTestPage() {
       {showSubmitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 max-w-sm w-full rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="text-4xl text-center">🧐</div>
+            <div className="text-center">
+              <FaTriangleExclamation className="mx-auto text-5xl text-red-500 dark:text-red-400" />
+            </div>
             <h4 className="text-lg font-bold text-center text-slate-900 dark:text-white">
               Submit test early?
             </h4>

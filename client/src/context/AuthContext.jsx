@@ -12,7 +12,7 @@
  *  - All other behaviour (parallel admin + user session check, isLoading) unchanged.
  */
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import api from "../api/axios";
 
 const AuthContext = createContext(null);
@@ -25,9 +25,22 @@ export function AuthProvider({ children }) {
 
   // On app load: check both admin and premium user sessions in parallel.
   // Promise.allSettled means a 401/403 on one endpoint never blocks the other.
+  //
+  // Perf note: `adminUser` (set from GET /admin/auth/me below) is only ever
+  // read by AdminTopBar, which lives inside the admin panel. Public visitors
+  // — the vast majority of pageviews — never need it, so firing that request
+  // unconditionally cost every public pageview one extra wasted round-trip
+  // to the server. We now only make the admin check when the visitor is
+  // actually on an admin URL; admin behaviour is completely unchanged.
   useEffect(() => {
+    const isAdminRoute = window.location.pathname.startsWith("/admin");
+
+    const adminCheck = isAdminRoute
+      ? api.get("/admin/auth/me")
+      : Promise.reject({ __skipped: true });
+
     Promise.allSettled([
-      api.get("/admin/auth/me"),
+      adminCheck,
       api.get("/user/auth/me"),
     ]).then(([adminResult, userResult]) => {
       // ── Admin session ──────────────────────────────────────────
@@ -59,18 +72,24 @@ export function AuthProvider({ children }) {
     setSessionExpired(false);
   }
 
+  // Memoized so consumers (Navbar, ProtectedAdminRoute, every page that
+  // reads auth state, etc.) only re-render when one of these values
+  // actually changes, instead of on every render of this provider.
+  const value = useMemo(
+    () => ({
+      adminUser,
+      setAdminUser,
+      premiumUser,
+      setPremiumUser,
+      isLoading,
+      sessionExpired,
+      clearExpiredSession,
+    }),
+    [adminUser, premiumUser, isLoading, sessionExpired]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        adminUser,
-        setAdminUser,
-        premiumUser,
-        setPremiumUser,
-        isLoading,
-        sessionExpired,
-        clearExpiredSession,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

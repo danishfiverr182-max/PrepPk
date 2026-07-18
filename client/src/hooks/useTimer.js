@@ -102,14 +102,24 @@ export function useTimer(totalSecondsOrOptions, storageKey, onExpire) {
 
     const baseSeconds = Math.max(0, Math.floor(totalSeconds));
     const restored = getInitialSeconds(baseSeconds, timerKey);
-    setSecondsLeft(restored);
 
     if (restored <= 0) {
-      clearTimer();
-      onExpireRef.current?.();
-      return;
+      // A stored timer that's already expired on arrival can only mean the
+      // tab/browser was closed mid-test (a live, open tab always catches
+      // zero itself via the running tick below, and auto-submits right
+      // then). Treat this as an abandoned attempt, not a real timeout:
+      // wipe the stale storage and start a completely fresh session
+      // instead of silently auto-submitting empty answers.
+      clearTimerStorage(timerKey);
+      setSecondsLeft(baseSeconds);
+      persist(baseSeconds);
+      startInterval(baseSeconds);
+      return () => {
+        clearTimer();
+      };
     }
 
+    setSecondsLeft(restored);
     persist(restored);
     startInterval(restored);
 

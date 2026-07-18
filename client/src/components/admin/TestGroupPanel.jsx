@@ -54,6 +54,15 @@ function ClockIcon() {
   );
 }
 
+function TrashIcon({ className = "w-4 h-4" }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9.5 4h5a1 1 0 011 1v2h-7V5a1 1 0 011-1z" />
+    </svg>
+  );
+}
+
 function GearIcon() {
   return (
     <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,14 +143,27 @@ function TestRow({ groupName, test, onAction }) {
 
 // ── Group chip (State A) ──────────────────────────────────────
 
-function GroupChip({ group, onClick }) {
+function GroupChip({ group, onClick, onDelete, deleting }) {
   return (
-    <button
-      onClick={() => onClick(group)}
-      className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border border-accent/30 text-accent bg-accent/10 hover:bg-accent/20 hover:border-accent/50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30"
-    >
-      {group.name}
-    </button>
+    <span className="inline-flex items-center rounded-full border border-accent/30 bg-accent/10 hover:border-accent/50 transition-colors duration-150 overflow-hidden">
+      <button
+        onClick={() => onClick(group)}
+        className="px-3 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        {group.name}
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(group);
+        }}
+        disabled={deleting}
+        title={`Delete ${group.name} group`}
+        className="pl-1 pr-2 py-1.5 text-accent/60 hover:text-danger disabled:opacity-50 transition-colors duration-150 focus:outline-none"
+      >
+        {deleting ? <Spinner /> : <TrashIcon className="w-3.5 h-3.5" />}
+      </button>
+    </span>
   );
 }
 
@@ -166,6 +188,10 @@ export default function TestGroupPanel({ category, onClose }) {
   const [loadingTests, setLoadingTests] = useState(false);
   const [addingTest, setAddingTest] = useState(false);
   const [addTestError, setAddTestError] = useState("");
+
+  // ── Group deletion ─────────────────────────────────────────
+  const [deletingGroupId, setDeletingGroupId] = useState(null);
+  const [deleteError, setDeleteError] = useState("");
 
   // Focus name input when State A is shown
   useEffect(() => {
@@ -237,6 +263,33 @@ export default function TestGroupPanel({ category, onClose }) {
       setAddTestError(err.response?.data?.message || "Failed to create test.");
     } finally {
       setAddingTest(false);
+    }
+  }
+
+  // ── Delete group — DELETE /api/test-groups/:groupId ────────
+  // Deletes the group and ALL of its tests (both premium and free),
+  // including their MCQs from MongoDB. This is irreversible, so we
+  // confirm with the admin first.
+  async function handleDeleteGroup(group) {
+    const confirmed = window.confirm(
+      `Delete "${group.name}"? This will permanently delete this group and ALL of its tests (including every question in them). This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleteError("");
+    setDeletingGroupId(group._id);
+    try {
+      await api.delete(`/test-groups/${group._id}`);
+      setExistingGroups((prev) => prev.filter((g) => g._id !== group._id));
+      // If the deleted group was open, return to the group list
+      if (activeGroup && activeGroup._id === group._id) {
+        setActiveGroup(null);
+        setTests([]);
+      }
+    } catch (err) {
+      setDeleteError(err.response?.data?.message || "Failed to delete group.");
+    } finally {
+      setDeletingGroupId(null);
     }
   }
 
@@ -322,11 +375,23 @@ export default function TestGroupPanel({ category, onClose }) {
               <p className="text-xs text-txt-muted mb-2.5">Or select existing group</p>
               <div className="flex flex-wrap gap-2">
                 {existingGroups.map((g) => (
-                  <GroupChip key={g._id} group={g} onClick={handleChipClick} />
+                  <GroupChip
+                    key={g._id}
+                    group={g}
+                    onClick={handleChipClick}
+                    onDelete={handleDeleteGroup}
+                    deleting={deletingGroupId === g._id}
+                  />
                 ))}
               </div>
             </div>
           ) : null}
+
+          {deleteError && (
+            <p className="text-xs text-danger bg-danger-light/10 border border-danger/20 rounded-lg px-3 py-2">
+              {deleteError}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -342,13 +407,30 @@ export default function TestGroupPanel({ category, onClose }) {
         <h4 className="text-base font-bold text-txt-primary">
           {activeGroup.name} Tests
         </h4>
-        <button
-          onClick={onClose}
-          className="text-txt-muted hover:text-txt-secondary transition text-lg leading-none ml-3 shrink-0"
-        >
-          ×
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => handleDeleteGroup(activeGroup)}
+            disabled={deletingGroupId === activeGroup._id}
+            title={`Delete ${activeGroup.name} group`}
+            className="flex items-center gap-1 text-xs font-semibold text-danger/80 hover:text-danger disabled:opacity-50 transition"
+          >
+            {deletingGroupId === activeGroup._id ? <Spinner /> : <TrashIcon className="w-3.5 h-3.5" />}
+            Delete Group
+          </button>
+          <button
+            onClick={onClose}
+            className="text-txt-muted hover:text-txt-secondary transition text-lg leading-none"
+          >
+            ×
+          </button>
+        </div>
       </div>
+
+      {deleteError && (
+        <p className="mb-3 text-xs text-danger bg-danger-light/10 border border-danger/20 rounded-lg px-3 py-2">
+          {deleteError}
+        </p>
+      )}
 
       {/* Test list */}
       {loadingTests ? (

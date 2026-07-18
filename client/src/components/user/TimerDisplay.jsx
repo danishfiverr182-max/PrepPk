@@ -2,12 +2,33 @@
  * src/components/user/TimerDisplay.jsx
  *
  * Fixed-position countdown display.
+ *
+ * IMPORTANT: this component owns the actual per-second ticking (via
+ * useTimer). That keeps the countdown's setInterval-driven state changes
+ * scoped to this small leaf component instead of the parent test page —
+ * previously useTimer was called in TakeTestPage itself, which meant every
+ * 1-second tick re-rendered the entire page (question, image, options,
+ * everything) just to update a clock string.
+ *
  * Props:
- *   formattedTime  – "HH:MM:SS" string
- *   secondsLeft    – raw number (used for colour / pulse logic)
+ *   totalSeconds – section time limit in seconds (0 until known)
+ *   timerKey     – localStorage key, e.g. `timer_${testId}_${sectionKey}`
+ *   onExpire     – called once when the countdown hits zero
+ *   enabled      – pass false until totalSeconds is actually known
+ *   inline       – layout variant (header badge vs fixed corner)
  */
 
-export default function TimerDisplay({ formattedTime, secondsLeft, inline = false }) {
+import { memo } from "react";
+import { useTimer } from "../../hooks/useTimer";
+
+function TimerDisplay({ totalSeconds, timerKey, onExpire, enabled = true, inline = false }) {
+  const { secondsLeft, formattedTime } = useTimer({
+    totalSeconds,
+    timerKey,
+    onExpire,
+    enabled,
+  });
+
   const warning  = secondsLeft <= 60;
   const critical = secondsLeft <= 10;
 
@@ -44,3 +65,5 @@ export default function TimerDisplay({ formattedTime, secondsLeft, inline = fals
     </div>
   );
 }
+
+export default memo(TimerDisplay);

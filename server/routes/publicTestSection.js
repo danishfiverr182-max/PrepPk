@@ -14,17 +14,9 @@ import { Router }      from "express";
 import FreeMockSection from "../models/FreeMockSection.js";
 import { SECTION_KEYS, SECTION_DISPLAY_NAMES as SECTION_NAMES } from "../config/freeTestSections.js";
 import { getPublishedFreeTest } from "../utils/getPublishedFreeTest.js";
+import { seededShuffle } from "../utils/seededShuffle.js";
 
 const router = Router();
-
-// ── Fisher-Yates shuffle (in-place) ──────────────────────────
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
 
 router.get("/:testId/section/:sectionKey/mcqs", async (req, res) => {
   try {
@@ -60,16 +52,19 @@ router.get("/:testId/section/:sectionKey/mcqs", async (req, res) => {
       return res.status(404).json({ message: "This section has no questions yet." });
     }
 
-    // Strip sensitive fields and shuffle
-    const safeMcqs = shuffle(
-      section.mcqs.map((mcq) => ({
-        _id:      mcq._id,
-        question: mcq.question,
-        options:  mcq.options,
-        imageUrl: mcq.imageUrl || "",
-        // correctIndex and explanation intentionally omitted
-      }))
-    );
+    // Deterministic, per-test order (stable across reloads) — and cap to
+    // totalMCQs so a shared pool never ships more questions than this
+    // test is actually configured to show.
+    const ordered = seededShuffle(section.mcqs, `${testId}:${sectionKey}`);
+    const limit   = section.totalMCQs > 0 ? section.totalMCQs : ordered.length;
+
+    const safeMcqs = ordered.slice(0, limit).map((mcq) => ({
+      _id:      mcq._id,
+      question: mcq.question,
+      options:  mcq.options,
+      imageUrl: mcq.imageUrl || "",
+      // correctIndex and explanation intentionally omitted
+    }));
 
     res.set("Cache-Control", "no-store");
 

@@ -12,6 +12,7 @@
 import { Link } from "react-router-dom";
 import { usePublicCategories } from "../context/PublicCategoriesContext";
 import CategoryLockMessage from "./CategoryLockMessage";
+import { optimizeCloudinaryUrl } from "../../utils/optimizeCloudinaryUrl";
 
 // ── Category color themes (cycles through) ──────────────────
 const CARD_THEMES = [
@@ -48,6 +49,9 @@ function CategoryCard({ category, premiumUser, onLockedClick, themeIndex }) {
   const theme = CARD_THEMES[themeIndex % CARD_THEMES.length];
   const isLoggedIn = !!premiumUser;
   const coverImageUrl = category.coverImageUrl || category.image || "";
+  // Card renders at h-40 (160px), so 480px covers even a 3x-density
+  // phone screen without shipping a full-resolution original.
+  const optimizedCoverImageUrl = optimizeCloudinaryUrl(coverImageUrl, { width: 480 });
 
   return (
     <div
@@ -70,7 +74,7 @@ function CategoryCard({ category, premiumUser, onLockedClick, themeIndex }) {
       <div className="relative h-40 overflow-hidden">
         {coverImageUrl ? (
           <img
-            src={coverImageUrl}
+            src={optimizedCoverImageUrl}
             alt={category.name}
             loading="lazy"
             className="w-full h-full object-cover opacity-60 group-hover:opacity-80 group-hover:scale-105 transition-all duration-500"

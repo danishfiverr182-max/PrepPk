@@ -21,8 +21,9 @@ import {
 import api from "../../api/axios";
 import McqImage from "../components/McqImage";
 import safeStorage from "../utils/safeStorage";
-import { useTimer, clearTimerStorage } from "../../hooks/useTimer";
+import { clearTimerStorage } from "../../hooks/useTimer";
 import TimerDisplay from "../../components/user/TimerDisplay";
+import { FaTriangleExclamation } from "react-icons/fa6";
 
 const LS_KEY = (testId) => `freeTest_${testId}`;
 
@@ -421,14 +422,10 @@ export default function TestSectionPage() {
     };
   }, [testId, sectionKey, retryCount]);
 
-  // ── useTimer logic ───────────────────────────────────────────
+  // ── Timer config (ticking itself lives inside <TimerDisplay>, so a
+  //    per-second update no longer re-renders this whole page — same
+  //    pattern already used in pages/user/TakeTestPage.jsx) ──────────
   const timerReady = totalSeconds !== null;
-  const { secondsLeft, formattedTime } = useTimer({
-    totalSeconds: timerReady ? totalSeconds : 0,
-    timerKey: timerKeyRef.current,
-    onExpire: timerReady ? handleAutoSubmit : undefined,
-    enabled: timerReady,
-  });
 
   const total = mcqs.length;
   const currentMcq = mcqs[currentIndex] ?? null;
@@ -537,8 +534,10 @@ export default function TestSectionPage() {
 
         {timerReady && (
           <TimerDisplay
-            formattedTime={formattedTime}
-            secondsLeft={secondsLeft}
+            totalSeconds={totalSeconds}
+            timerKey={timerKeyRef.current}
+            onExpire={handleAutoSubmit}
+            enabled={timerReady}
             inline={true}
           />
         )}
@@ -789,7 +788,9 @@ export default function TestSectionPage() {
       {showSubmitConfirm && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 max-w-sm w-full rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="text-4xl text-center">🧐</div>
+            <div className="text-center">
+              <FaTriangleExclamation className="mx-auto text-5xl text-red-500 dark:text-red-400" />
+            </div>
             <h4 className="text-lg font-bold text-center text-slate-900 dark:text-white">
               Submit test early?
             </h4>

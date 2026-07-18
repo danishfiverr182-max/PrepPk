@@ -13,7 +13,7 @@
  *   const { phone, whatsappNumber, email, loading } = usePublicSettings();
  */
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 
 const DEFAULTS = { phone: "", whatsappNumber: "", email: "" };
@@ -50,8 +50,15 @@ export function PublicSettingsProvider({ children }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Memoized so consumers (Footer, PremiumPopup, etc.) only re-render when
+  // the settings data actually changes, not on every render of this provider.
+  const value = useMemo(
+    () => ({ ...settings, loading }),
+    [settings, loading]
+  );
+
   return (
-    <PublicSettingsContext.Provider value={{ ...settings, loading }}>
+    <PublicSettingsContext.Provider value={value}>
       {children}
     </PublicSettingsContext.Provider>
   );

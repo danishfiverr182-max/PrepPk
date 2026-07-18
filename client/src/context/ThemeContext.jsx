@@ -10,7 +10,7 @@
  * admin panel never reads or renders this context.
  */
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 const THEME_STORAGE_KEY = "prepPkTheme";
 
@@ -46,12 +46,20 @@ export function ThemeProvider({ children }) {
     window.localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-  };
+  }, []);
+
+  // Memoized so every consumer across the whole app (this provider wraps
+  // everything, in main.jsx) only re-renders when the theme actually
+  // changes, not on every render of this provider.
+  const value = useMemo(
+    () => ({ theme, toggleTheme }),
+    [theme, toggleTheme]
+  );
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

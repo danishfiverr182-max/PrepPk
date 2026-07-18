@@ -107,6 +107,9 @@ export async function login(req, res) {
         email:     user.email,
         expiresAt: user.expiresAt,
         isActive:  user.isActive,
+        // Cosmetic-only: which category nav links to briefly highlight
+        // after login. Does not affect access   see PremiumUser model.
+        favoriteCategories: user.favoriteCategories || [],
       },
     });
   } catch (err) {
@@ -124,6 +127,7 @@ export async function me(req, res) {
       email:     user.email,
       expiresAt: user.expiresAt,
       isActive:  user.isActive,
+      favoriteCategories: user.favoriteCategories || [],
     });
   } catch (err) {
     console.error("user me error:", err);

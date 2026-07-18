@@ -79,12 +79,58 @@ function LogoutConfirmModal({ onConfirm, onCancel }) {
   );
 }
 
+// How long the favorite-category glow stays visible before fading out.
+// Named constant so it's easy to tune without hunting through the effect.
+const FAVORITE_HIGHLIGHT_DURATION_MS = 4000;
+
 export default function Navbar({ onLoginClick, testMode = false }) {
   const { categories, loading: catsLoading, error } = useCategories();
   const { premiumUser, setPremiumUser, isLoading: authLoading } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Cosmetic-only: category slugs to briefly glow in the nav right now.
+  // This never affects what the user can click/access   every category
+  // remains fully open to every premium user regardless of this list.
+  const [highlightedSlugs, setHighlightedSlugs] = useState([]);
+
+  // Fire the highlight once per browser session (sessionStorage, not
+  // localStorage   clears when the user actually closes the browser/tab,
+  // matching "closes everything and visits again -> plays again").
+  // Scoped per-user id so a shared browser with multiple accounts doesn't
+  // leak one user's highlight state into another's session.
+  useEffect(() => {
+    if (authLoading || !premiumUser) return;
+
+    const favorites = premiumUser.favoriteCategories || [];
+    if (favorites.length === 0) return;
+
+    const sessionKey = `prepPk_favHighlightShown_${premiumUser.id}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+
+    sessionStorage.setItem(sessionKey, "1");
+    setHighlightedSlugs(favorites);
+
+    const timer = setTimeout(() => {
+      setHighlightedSlugs([]);
+    }, FAVORITE_HIGHLIGHT_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [authLoading, premiumUser]);
+
+  // Merges the normal active/inactive nav-link styling with a temporary
+  // glow for categories in highlightedSlugs. Unmatched slugs (e.g. a
+  // category was renamed/removed since the admin picked it) simply never
+  // match here, so nothing breaks   they're silently skipped.
+  function categoryLinkClass(cat) {
+    const isHighlighted = highlightedSlugs.includes(cat.slug);
+    return ({ isActive }) => {
+      const base = navLinkClass({ isActive });
+      if (!isHighlighted) return base;
+      return `${base} ring-2 ring-yellow-400 dark:ring-yellow-300 animate-pulse shadow-[0_0_12px_rgba(250,204,21,0.55)]`;
+    };
+  }
 
   // Shadow navbar on scroll
   useEffect(() => {
@@ -187,7 +233,7 @@ export default function Navbar({ onLoginClick, testMode = false }) {
                     <NavLink
                       key={cat._id}
                       to={`/category/${cat.slug}`}
-                      className={navLinkClass}
+                      className={categoryLinkClass(cat)}
                     >
                       {cat.name}
                     </NavLink>
@@ -225,6 +271,7 @@ export default function Navbar({ onLoginClick, testMode = false }) {
           onLoginClick={onLoginClick}
           premiumUser={premiumUser}
           onLogout={requestLogout}
+          highlightedSlugs={highlightedSlugs}
         />
 
         {showLogoutConfirm && (
@@ -313,7 +360,7 @@ export default function Navbar({ onLoginClick, testMode = false }) {
                 <NavLink
                   key={cat._id}
                   to={`/category/${cat.slug}`}
-                  className={navLinkClass}
+                  className={categoryLinkClass(cat)}
                 >
                   {cat.name}
                 </NavLink>
@@ -339,6 +386,7 @@ export default function Navbar({ onLoginClick, testMode = false }) {
         onLoginClick={onLoginClick}
         premiumUser={premiumUser}
         onLogout={requestLogout}
+        highlightedSlugs={highlightedSlugs}
       />
 
       {showLogoutConfirm && (

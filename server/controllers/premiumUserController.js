@@ -28,6 +28,7 @@ export async function createUser(req, res) {
       duration,
       notes,
       plainPassword: clientPassword,
+      favoriteCategories,
     } = req.body;
 
     // ── Validate required fields ──────────────────────────
@@ -62,6 +63,14 @@ export async function createUser(req, res) {
         ? clientPassword.trim()
         : generateUserPassword();
 
+    // Favorite categories are cosmetic-only (see model comment) — just
+    // sanitize to an array of non-empty strings, no need to validate
+    // against real category slugs; an unmatched slug is simply skipped
+    // by the frontend highlight logic later.
+    const safeFavoriteCategories = Array.isArray(favoriteCategories)
+      ? favoriteCategories.filter((s) => typeof s === "string" && s.trim()).map((s) => s.trim())
+      : [];
+
     // ── Create user ───────────────────────────────────────
     const user = await PremiumUser.create({
       email:                email.toLowerCase().trim(),
@@ -70,6 +79,7 @@ export async function createUser(req, res) {
       duration,
       expiresAt,
       notes: notes || "",
+      favoriteCategories: safeFavoriteCategories,
     });
 
     return res.status(201).json({
@@ -147,6 +157,7 @@ export async function getUser(req, res) {
       createdAt:       user.createdAt,
       notes:           user.notes,
       duration:        user.duration,
+      favoriteCategories: user.favoriteCategories || [],
       hasPlainPassword: !!user.plainPasswordForAdmin,
       hasActiveSession,
     });
@@ -267,6 +278,38 @@ export async function extendUser(req, res) {
     });
   } catch (err) {
     console.error("extendUser error:", err);
+    return res.status(500).json({ message: "Server error." });
+  }
+}
+
+// PATCH /api/admin/users/:id/favorite-categories  admin only
+// Cosmetic-only (see PremiumUser model comment)   updates which category
+// nav links briefly highlight for this user after login. Does NOT change
+// what the user can access; every premium user can already reach every
+// category regardless of this list.
+export async function updateFavoriteCategories(req, res) {
+  try {
+    const { favoriteCategories } = req.body;
+
+    if (!Array.isArray(favoriteCategories)) {
+      return res.status(400).json({ message: "favoriteCategories must be an array." });
+    }
+
+    const safe = favoriteCategories
+      .filter((s) => typeof s === "string" && s.trim())
+      .map((s) => s.trim());
+
+    const user = await PremiumUser.findByIdAndUpdate(
+      req.params.id,
+      { favoriteCategories: safe },
+      { new: true, select: "favoriteCategories" }
+    );
+
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    return res.json({ success: true, favoriteCategories: user.favoriteCategories });
+  } catch (err) {
+    console.error("updateFavoriteCategories error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 }

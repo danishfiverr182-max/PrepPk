@@ -16,6 +16,7 @@ import {
   deleteUser,
   extendUser,
   forceLogout,
+  updateFavoriteCategories,
 } from "../controllers/premiumUserController.js";
 import { protect } from "../middleware/adminAuth.js";
 import PremiumUser from "../models/PremiumUser.js";
@@ -69,6 +70,7 @@ router.get(   "/:userId/retrieve-password", protect, retrievePassword);
 router.post(  "/:userId/reset-password",    protect, resetPassword);
 router.delete("/:id",                       protect, deleteUser);
 router.patch( "/:id/extend",               protect, extendUser);
+router.patch( "/:id/favorite-categories",  protect, updateFavoriteCategories);
 router.post( "/:userId/force-logout",       protect, forceLogout);
 
 export default router;

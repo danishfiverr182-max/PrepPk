@@ -30,6 +30,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/axios";
 import SeoHead from "../../components/SeoHead";
 import { useSeoMeta } from "../../hooks/useSeoMeta";
+import { usePublicCategories } from "../context/PublicCategoriesContext";
 import FreeTestCard from "../components/FreeTestCard";
 import FreeCustomTestCard from "../components/FreeCustomTestCard";
 
@@ -191,14 +192,20 @@ export default function FreeMockTestsPage() {
       .finally(() => { setLoading(false); });
   }
 
-  // Fetch all custom (non-default) categories, then fetch free tests for
-  // each one in parallel, and keep only the categories that actually have
-  // published free tests.
-  async function fetchCustomGroups() {
+  // Categories are already fetched once by <PublicCategoriesProvider> at the
+  // layout level and shared via context — reusing that here (instead of this
+  // page firing its own separate GET /api/categories) removes a duplicate
+  // network round-trip and the waterfall it caused, since the per-category
+  // free-test requests below no longer have to wait on a second categories
+  // fetch that had already happened elsewhere.
+  const { categories, loading: categoriesLoading } = usePublicCategories();
+
+  // Fetch free tests for every custom (non-default) category in parallel,
+  // and keep only the categories that actually have published free tests.
+  async function fetchCustomGroups(categoryList) {
     setCustomLoading(true);
     try {
-      const { data: categories } = await api.get("/categories");
-      const customCategories = (categories || []).filter((c) => c.isDefault === false);
+      const customCategories = (categoryList || []).filter((c) => c.isDefault === false);
 
       const results = await Promise.all(
         customCategories.map((cat) =>
@@ -223,9 +230,17 @@ export default function FreeMockTestsPage() {
 
   useEffect(() => {
     fetchGroups();
-    fetchCustomGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    // Wait until the shared categories context has resolved (it started
+    // fetching as soon as the layout mounted, so this is usually instant
+    // by the time this page loads) rather than kicking off a second fetch.
+    if (categoriesLoading) return;
+    fetchCustomGroups(categories);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesLoading]);
 
   const totalTests = groups.reduce((sum, g) => sum + g.tests.length, 0);
   const totalCustomTests = customGroups.reduce((sum, g) => sum + g.tests.length, 0);

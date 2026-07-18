@@ -15,6 +15,7 @@
  */
 
 import { memo, useState, useEffect } from "react";
+import { optimizeCloudinaryUrl } from "../../utils/optimizeCloudinaryUrl";
 
 const PLACEHOLDER_SRC = "/assets/image-placeholder.svg";
 
@@ -30,10 +31,16 @@ function McqImageInner({ src, alt = "Question image", isNonVerbal = false }) {
 
   if (!src) return null;
 
+  // Cap delivered width to what the layout actually displays (no-ops on
+  // non-Cloudinary URLs, e.g. the local placeholder). isNonVerbal renders
+  // in a large ~55% viewport pane so gets a bigger cap; the compact
+  // (review/custom-test) layout is capped at max-h-64 so needs far less.
+  const optimizedSrc = optimizeCloudinaryUrl(src, { width: isNonVerbal ? 900 : 500 });
+
   return (
     <div className="text-center w-full h-full flex items-center justify-center">
       <img
-        src={failed ? PLACEHOLDER_SRC : src}
+        src={failed ? PLACEHOLDER_SRC : optimizedSrc}
         alt={alt}
         loading="lazy"
         onError={() => setFailed(true)}

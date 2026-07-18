@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
+import { useCategories } from "../../hooks/useCategories";
 
 // ── Copyable field (same flash behavior as CreateUserModal) ───
 function CopyField({ value, mono = false }) {
@@ -100,7 +101,33 @@ export default function UserDetailModal({ userId, onClose }) {
   const [retrieving,      setRetrieving]      = useState(false);
   const [plainPassword,   setPlainPassword]   = useState(null);   // string | null | "expired"
   const [forcingLogout,   setForcingLogout]   = useState(false);
+  // Cosmetic-only favorite-categories editing (navbar highlight, no access effect)
+  const [savingFavorites, setSavingFavorites] = useState(false);
+  const { categories: allCategories, loading: catsLoading } = useCategories();
   const overlayRef = useRef(null);
+
+  async function toggleFavoriteCategory(slug) {
+    if (!user) return;
+    const current = user.favoriteCategories || [];
+    const next = current.includes(slug)
+      ? current.filter((s) => s !== slug)
+      : [...current, slug];
+
+    // Optimistic update
+    setUser((prev) => ({ ...prev, favoriteCategories: next }));
+    setSavingFavorites(true);
+    try {
+      await api.patch(`/admin/users/${userId}/favorite-categories`, {
+        favoriteCategories: next,
+      });
+    } catch (err) {
+      // Revert on failure
+      setUser((prev) => ({ ...prev, favoriteCategories: current }));
+      toast.error(err.response?.data?.message || "Failed to update favorite categories.");
+    } finally {
+      setSavingFavorites(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -266,6 +293,48 @@ export default function UserDetailModal({ userId, onClose }) {
                     <span className="text-sm text-txt-muted">No notes</span>
                   )}
                 </InfoRow>
+              </div>
+
+              {/* Favorite categories   cosmetic navbar highlight only, no access effect */}
+              <div className="border border-border rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-txt-muted uppercase tracking-widest">
+                    Favorite Categories
+                  </p>
+                  {savingFavorites && (
+                    <span className="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                  )}
+                </div>
+                <p className="text-xs text-txt-muted">
+                  Briefly highlighted in this user's navbar after login. Doesn't limit access.
+                </p>
+                {catsLoading ? (
+                  <p className="text-xs text-txt-muted">Loading categories…</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {allCategories.map((cat) => {
+                      const checked = (user.favoriteCategories || []).includes(cat.slug);
+                      return (
+                        <label
+                          key={cat._id}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition ${
+                            checked
+                              ? "border-brand bg-brand-light text-txt-primary font-medium"
+                              : "border-border text-txt-secondary hover:border-txt-muted"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleFavoriteCategory(cat.slug)}
+                            className="accent-brand"
+                          />
+                          {cat.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Retrieve Password section */}

@@ -35,6 +35,16 @@ const premiumUserSchema = new mongoose.Schema(
     // Optional admin memo (e.g. "Paid via bank transfer on 27 Jun")
     notes: { type: String, default: "" },
 
+    // ── Favorite categories (cosmetic only) ─────────────────────────────────
+    // Category slugs the admin has marked as this user's interest, e.g.
+    // because they mentioned wanting "General Knowledge" when they paid.
+    // Purely for the navbar highlight-on-login UX touch   this field does
+    // NOT affect access control in any way. hasAccessTo() above already
+    // grants every premium user access to every category regardless of
+    // what's in this list; this array is only ever read by the frontend
+    // to decide which nav links to briefly highlight after login.
+    favoriteCategories: { type: [String], default: [] },
+
     // ── Login-security fields ──────────────────────────────────────────────
     failedLoginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date, default: null },

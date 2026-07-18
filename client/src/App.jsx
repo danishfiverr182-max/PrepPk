@@ -1,4 +1,5 @@
 import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -7,71 +8,93 @@ import AdminErrorBoundary from "./components/admin/AdminErrorBoundary";
 import PublicErrorBoundary from "./public/components/PublicErrorBoundary";
 import ErrorPage from "./public/components/ErrorPage";
 import UserLayout from "./layouts/UserLayout";
-import AdminLayout from "./layouts/AdminLayout";
+const AdminLayout = lazy(() => import("./layouts/AdminLayout"));
 import { PublicCategoriesProvider } from "./public/context/PublicCategoriesContext";
-
-// User pages
-import HomePage from "./pages/user/HomePage";
-import CategoryPage from "./pages/user/CategoryPage";
-import FreeMockTestsPage from "./pages/user/FreeMockTestsPage";
-import TestHubPage from "./pages/user/TestHubPage";
-import TakeTestPage from "./pages/user/TakeTestPage";
-import PremiumSectionResultPage from "./pages/user/SectionResultPage";
-import PremiumMcqReviewPage from "./pages/user/McqReviewPage";
-import NotFoundPage from "./pages/user/NotFoundPage";
-
-// Part 8 Free Mock Test Engine
-import TestSectionPage from "./public/pages/TestSectionPage";
-import SectionResultPage from "./public/pages/SectionResultPage";
-import McqReviewPage from "./public/pages/McqReviewPage";
-// TestHubPage for Part 8 routes (public folder version)
-import FreeMockTestHubPage from "./public/pages/TestHubPage";
-
-// Admin pages (Part 1)
-import AdminLoginPage from "./pages/admin/AdminLoginPage";
-import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
-import AdminAddTestPage from "./pages/admin/AdminAddTestPage";
-import AdminUsersPage from "./pages/admin/AdminUsersPage";
-
-// Admin auth page (Part 2)
-import AdminAuth from "./pages/admin/AdminAuth";
-
-// Admin homepage (Prompt 03)
-import AdminHomePage from "./pages/admin/AdminHomePage";
-
-// Per-category test list page (Prompt 06)
-import AdminCategoryPage from "./pages/admin/CategoryPage";
-
-// Section pages
-import VerbalSectionPage      from "./pages/admin/VerbalSectionPage";
-import NonVerbalSectionPage from "./pages/admin/NonVerbalSectionPage";
-import AcademicSectionPage     from "./pages/admin/AcademicSectionPage";
-
-// Test view page (Prompt 08)
-import TestViewPage from "./pages/admin/TestViewPage";
-
-// Part 5 Free Mock Tests admin pages
-import FreeMockTestsAdminPage       from "./pages/admin/FreeMockTestsPage";
-import FreeMockVerbalSectionPage    from "./pages/admin/free-mock/FreeMockVerbalSectionPage";
-import FreeMockNonVerbalSectionPage from "./pages/admin/free-mock/FreeMockNonVerbalSectionPage";
-import FreeMockAcademicSectionPage  from "./pages/admin/free-mock/FreeMockAcademicSectionPage";
-import FreeMockTestViewPage         from "./pages/admin/free-mock/FreeMockTestViewPage";
-
-// Custom category test creation (Prompt 2)
-import AdminCustomTestPage from "./pages/admin/AdminCustomTestPage";
-import AdminFreeCustomTestPage from "./pages/admin/AdminFreeCustomTestPage";
-
-// Custom category user pages (Prompt 3)
-import CustomTestHubPage    from "./pages/user/CustomTestHubPage";
-import FreeCustomTestHubPage    from "./pages/user/FreeCustomTestHubPage";
-import FreeCustomTakeTestPage   from "./pages/user/FreeCustomTakeTestPage";
-import FreeCustomTestResultPage from "./pages/user/FreeCustomTestResultPage";
-import CustomTakeTestPage   from "./pages/user/CustomTakeTestPage";
-import CustomTestResultPage from "./pages/user/CustomTestResultPage";
-
 import { useTheme } from "./context/ThemeContext";
 
+// ── Page components are lazy-loaded (route-based code splitting) ──────
+// Previously every page   including the entire admin panel (dashboard,
+// test builder, MCQ editors, user management, etc.)   was statically
+// imported here, so every visitor downloaded and parsed all of it just
+// to view the public homepage. Converting these to React.lazy() means
+// each page's JS only downloads when its route is actually visited.
+// Structural pieces above (layouts, contexts, error boundaries,
+// ProtectedAdminRoute) stay as regular imports since they're small,
+// used by nearly every route anyway, and lazy-loading them would add
+// complexity for no real benefit.
+
+// User pages
+const HomePage                  = lazy(() => import("./pages/user/HomePage"));
+const CategoryPage              = lazy(() => import("./pages/user/CategoryPage"));
+const FreeMockTestsPage         = lazy(() => import("./pages/user/FreeMockTestsPage"));
+const TestHubPage               = lazy(() => import("./pages/user/TestHubPage"));
+const TakeTestPage              = lazy(() => import("./pages/user/TakeTestPage"));
+const PremiumSectionResultPage  = lazy(() => import("./pages/user/SectionResultPage"));
+const PremiumMcqReviewPage      = lazy(() => import("./pages/user/McqReviewPage"));
+const NotFoundPage              = lazy(() => import("./pages/user/NotFoundPage"));
+
+// Part 8 Free Mock Test Engine
+const TestSectionPage       = lazy(() => import("./public/pages/TestSectionPage"));
+const SectionResultPage     = lazy(() => import("./public/pages/SectionResultPage"));
+const McqReviewPage         = lazy(() => import("./public/pages/McqReviewPage"));
+// TestHubPage for Part 8 routes (public folder version)
+const FreeMockTestHubPage   = lazy(() => import("./public/pages/TestHubPage"));
+
+// Admin pages (Part 1)
+const AdminLoginPage     = lazy(() => import("./pages/admin/AdminLoginPage"));
+const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
+const AdminAddTestPage   = lazy(() => import("./pages/admin/AdminAddTestPage"));
+const AdminUsersPage     = lazy(() => import("./pages/admin/AdminUsersPage"));
+
+// Admin auth page (Part 2)
+const AdminAuth = lazy(() => import("./pages/admin/AdminAuth"));
+
+// Admin homepage (Prompt 03)
+const AdminHomePage = lazy(() => import("./pages/admin/AdminHomePage"));
+
+// Per-category test list page (Prompt 06)
+const AdminCategoryPage = lazy(() => import("./pages/admin/CategoryPage"));
+
+// Section pages
+const VerbalSectionPage    = lazy(() => import("./pages/admin/VerbalSectionPage"));
+const NonVerbalSectionPage = lazy(() => import("./pages/admin/NonVerbalSectionPage"));
+const AcademicSectionPage  = lazy(() => import("./pages/admin/AcademicSectionPage"));
+
+// Test view page (Prompt 08)
+const TestViewPage = lazy(() => import("./pages/admin/TestViewPage"));
+
+// Part 5 Free Mock Tests admin pages
+const FreeMockTestsAdminPage       = lazy(() => import("./pages/admin/FreeMockTestsPage"));
+const FreeMockVerbalSectionPage    = lazy(() => import("./pages/admin/free-mock/FreeMockVerbalSectionPage"));
+const FreeMockNonVerbalSectionPage = lazy(() => import("./pages/admin/free-mock/FreeMockNonVerbalSectionPage"));
+const FreeMockAcademicSectionPage  = lazy(() => import("./pages/admin/free-mock/FreeMockAcademicSectionPage"));
+const FreeMockTestViewPage         = lazy(() => import("./pages/admin/free-mock/FreeMockTestViewPage"));
+
+// Custom category test creation (Prompt 2)
+const AdminCustomTestPage     = lazy(() => import("./pages/admin/AdminCustomTestPage"));
+const AdminFreeCustomTestPage = lazy(() => import("./pages/admin/AdminFreeCustomTestPage"));
+
+// Custom category user pages (Prompt 3)
+const CustomTestHubPage        = lazy(() => import("./pages/user/CustomTestHubPage"));
+const FreeCustomTestHubPage    = lazy(() => import("./pages/user/FreeCustomTestHubPage"));
+const FreeCustomTakeTestPage   = lazy(() => import("./pages/user/FreeCustomTakeTestPage"));
+const FreeCustomTestResultPage = lazy(() => import("./pages/user/FreeCustomTestResultPage"));
+const CustomTakeTestPage       = lazy(() => import("./pages/user/CustomTakeTestPage"));
+const CustomTestResultPage     = lazy(() => import("./pages/user/CustomTestResultPage"));
+
 const ADMIN_SECRET_PATH = import.meta.env.VITE_ADMIN_PATH || "/admin-x9k2";
+
+// ── Full-page loading fallback shown briefly while a route's JS chunk
+// downloads. Uses the same design tokens (bg-bg, border-brand) already
+// used throughout the admin modals, so it looks native rather than like
+// a generic placeholder. On a fast connection this is barely visible.
+function PageLoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg">
+      <div className="w-10 h-10 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 // ── Root wrapper providers that need to be inside the data router ──
 function RootProviders() {
@@ -95,7 +118,9 @@ function RootProviders() {
             error:   { duration: 4000 },
           }}
         />
-        <Outlet />
+        <Suspense fallback={<PageLoadingFallback />}>
+          <Outlet />
+        </Suspense>
       </AdminAuthProvider>
     </AuthProvider>
   );

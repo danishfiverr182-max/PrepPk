@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import session from "express-session";
 import passport from "./config/passport.js";
 import helmet from "helmet";
+import compression from "compression";
 import morgan from "morgan";
 
 // Existing Part 1 routes
@@ -119,6 +120,15 @@ app.use(
   })
 );
 
+// ── Gzip/Brotli response compression ───────────────────────────
+// Was completely missing before   every JSON response (MCQ lists, test
+// data, category listings, etc.) was going out uncompressed. JSON
+// compresses very well (typically 60-80% smaller), so this directly
+// cuts transfer time for every API call, especially on slower mobile
+// connections. Placed early, right after helmet, so it applies to
+// everything that follows.
+app.use(compression());
+
 // ── Morgan request logger (development only) ─────────────────
 // Logs every request with method, path, status, and response time.
 // Disabled in production so logs stay clean and don't leak paths.
@@ -171,7 +181,11 @@ app.use(passport.session());
 
 // ── MongoDB Connection ────────────────────────────────────────
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, {
+    maxPoolSize: 20,       // was implicit default (5) — too small for concurrent test-takers
+    minPoolSize: 2,
+    serverSelectionTimeoutMS: 10000,
+  })
   .then(async () => {
     console.log("✅ MongoDB connected");
 

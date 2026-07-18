@@ -17,6 +17,7 @@ import Test        from "../models/Test.js";
 import Section     from "../models/Section.js";
 import Category    from "../models/Category.js";
 import { userProtect } from "../middleware/userAuth.js";
+import { seededShuffle } from "../utils/seededShuffle.js";
 
 const router = Router();
 
@@ -66,15 +67,6 @@ async function checkUserAccess(req, res, test) {
   return true;
 }
 
-// ── Fisher-Yates shuffle (in-place) ──────────────────────────
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
 // ──────────────────────────────────────────────────────────────
 // GET /api/tests/:testId/section/:sectionKey/mcqs
 // Returns shuffled MCQs (no correctIndex/explanation) for the test session.
@@ -109,16 +101,19 @@ router.get("/:testId/section/:sectionKey/mcqs", userProtect, async (req, res) =>
       return res.status(404).json({ message: "This section has no questions yet." });
     }
 
-    // Strip sensitive fields and shuffle
-    const safeMcqs = shuffle(
-      section.mcqs.map((mcq) => ({
-        _id:      mcq._id,
-        question: mcq.question,
-        options:  mcq.options,
-        imageUrl: mcq.imageUrl || "",
-        // correctIndex and explanation intentionally omitted
-      }))
-    );
+    // Deterministic, per-test order (stable across reloads) — and cap to
+    // totalMCQs so a shared pool (Army/Navy/Air Force) never ships more
+    // questions than this test is actually configured to show.
+    const ordered = seededShuffle(section.mcqs, `${testId}:${sectionKey}`);
+    const limit   = section.totalMCQs > 0 ? section.totalMCQs : ordered.length;
+
+    const safeMcqs = ordered.slice(0, limit).map((mcq) => ({
+      _id:      mcq._id,
+      question: mcq.question,
+      options:  mcq.options,
+      imageUrl: mcq.imageUrl || "",
+      // correctIndex and explanation intentionally omitted
+    }));
 
     res.set("Cache-Control", "no-store");
 

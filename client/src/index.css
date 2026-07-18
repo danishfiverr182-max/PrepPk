@@ -1,3 +1,18 @@
+/* ── Self-hosted fonts (replaces Google Fonts CDN — see index.html) ──
+   Same families/weights as before, just served from our own domain so
+   there's no extra DNS + connection + round-trip to fonts.gstatic.com
+   blocking text render. Only the weights actually used are imported. */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/outfit/400.css';
+@import '@fontsource/outfit/500.css';
+@import '@fontsource/outfit/600.css';
+@import '@fontsource/outfit/700.css';
+@import '@fontsource/outfit/800.css';
+@import '@fontsource/outfit/900.css';
+
 @import './styles/globals.css';
 
 @tailwind base;

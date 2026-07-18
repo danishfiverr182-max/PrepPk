@@ -24,6 +24,9 @@ export default function MobileNavOverlay({
   onLoginClick,
   premiumUser,
   onLogout,
+  // Cosmetic-only: category slugs to briefly glow right now (see Navbar.jsx).
+  // Never affects which links are clickable   purely a temporary visual cue.
+  highlightedSlugs = [],
 }) {
   useEffect(() => {
     if (!isOpen) return;
@@ -45,6 +48,17 @@ export default function MobileNavOverlay({
         ? "text-yellow-600 bg-slate-200 dark:text-yellow-300 dark:bg-white/10"
         : "text-slate-600 hover:text-slate-900 hover:bg-slate-200 dark:text-purple-200/80 dark:hover:text-white dark:hover:bg-white/8"
     }`;
+
+  // Same glow treatment as the desktop navbar, kept in sync via the
+  // highlightedSlugs prop passed down from Navbar.jsx.
+  function categoryLinkClass(cat) {
+    const isHighlighted = highlightedSlugs.includes(cat.slug);
+    return ({ isActive }) => {
+      const base = linkClass({ isActive });
+      if (!isHighlighted) return base;
+      return `${base} ring-2 ring-yellow-400 dark:ring-yellow-300 animate-pulse shadow-[0_0_12px_rgba(250,204,21,0.55)]`;
+    };
+  }
 
   return (
     <>
@@ -124,7 +138,7 @@ export default function MobileNavOverlay({
               <NavLink
                 key={cat._id}
                 to={`/category/${cat.slug}`}
-                className={linkClass}
+                className={categoryLinkClass(cat)}
                 onClick={onClose}
               >
                 <span className="text-purple-400 text-xs">›</span>

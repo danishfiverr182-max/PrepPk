@@ -197,12 +197,6 @@ export default function CategoryPage() {
 
   useEffect(() => { fetchTests(); }, [fetchTests]);
 
-  // Re-fetch on auth change (login / logout mid-session)
-  useEffect(() => {
-    if (!loading) fetchTests();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [premiumUser]);
-
   // Handler for locked-card click   only for non-logged-in visitors
   function handleLockedClick(test) {
     const intent = test

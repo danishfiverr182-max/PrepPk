@@ -14,6 +14,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
+import { useCategories } from "../../hooks/useCategories";
 
 // ── Client-side password generator ───────────────────────────
 const CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -84,6 +85,17 @@ export default function CreateUserModal({ onClose, onCreated }) {
   const [generatedPassword, setGeneratedPassword] = useState(() => generatePasswordLocally());
   const [pwCopied,          setPwCopied]          = useState(false);
   const [credentials,       setCredentials]       = useState(null);
+  // Cosmetic-only: which categories to briefly highlight in the navbar for
+  // this user after login. Does not grant/restrict access   every premium
+  // user already has access to every category regardless of this selection.
+  const [favoriteCategories, setFavoriteCategories] = useState([]);
+  const { categories: allCategories, loading: catsLoading } = useCategories();
+
+  function toggleFavoriteCategory(slug) {
+    setFavoriteCategories((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    );
+  }
 
   const backdropRef = useRef(null);
   const pwCopyTimer = useRef(null);
@@ -133,6 +145,7 @@ export default function CreateUserModal({ onClose, onCreated }) {
         duration,
         plainPassword: generatedPassword,
         notes:         notes.trim(),
+        favoriteCategories,
       });
       setCredentials(res.data.credentials);
       onCreated?.();
@@ -157,6 +170,7 @@ export default function CreateUserModal({ onClose, onCreated }) {
     setEmailError("");
     setPwCopied(false);
     setGeneratedPassword(generatePasswordLocally());
+    setFavoriteCategories([]);
   }
 
   return (
@@ -308,6 +322,44 @@ export default function CreateUserModal({ onClose, onCreated }) {
                 <p className="text-xs text-txt-muted mt-2">
                   ✓ User gets full access to <span className="text-success">all categories</span> for the selected duration.
                 </p>
+              </div>
+
+              {/* Favorite categories   cosmetic navbar highlight only */}
+              <div>
+                <label className="text-txt-secondary font-medium text-xs block mb-1.5">
+                  Favorite Categories <span className="text-txt-muted">(optional)</span>
+                </label>
+                <p className="text-xs text-txt-muted mb-2">
+                  Briefly highlights these in the user's navbar after login so they can
+                  find them faster. Doesn't limit access   they can still take every test.
+                </p>
+                {catsLoading ? (
+                  <p className="text-xs text-txt-muted">Loading categories…</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {allCategories.map((cat) => {
+                      const checked = favoriteCategories.includes(cat.slug);
+                      return (
+                        <label
+                          key={cat._id}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition ${
+                            checked
+                              ? "border-brand bg-brand-light text-txt-primary font-medium"
+                              : "border-border text-txt-secondary hover:border-txt-muted"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleFavoriteCategory(cat.slug)}
+                            className="accent-brand"
+                          />
+                          {cat.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Notes */}
