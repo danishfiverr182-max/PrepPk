@@ -134,11 +134,11 @@ export default function PremiumPopup({ onClose, onLoginClick, intent = null }) {
 
             {/* Social proof pill */}
             <div
-              className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full text-xs font-semibold"
+              className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full text-xs font-semibold
+             text-[#0F3D3A] dark:text-[#A7F3D0]"
               style={{
                 background: "rgba(0,230,118,0.15)",
                 border: "1px solid rgba(0,230,118,0.3)",
-                color: "#0F3D3A",
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
@@ -275,7 +275,7 @@ export default function PremiumPopup({ onClose, onLoginClick, intent = null }) {
                 Chat on WhatsApp:
                 {displayNumber && (
                   <span className="text-white/90 font-bold text-sm">
-                     {displayNumber}
+                    {displayNumber}
                   </span>
                 )}
               </span>
