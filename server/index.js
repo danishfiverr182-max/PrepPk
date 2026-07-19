@@ -139,7 +139,7 @@ if (process.env.NODE_ENV !== "production") {
 // ── Middleware ────────────────────────────────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://mcqsprep-pk.netlify.app",
+  "https://preppk.netlify.app",
 ];
 
 app.use(
