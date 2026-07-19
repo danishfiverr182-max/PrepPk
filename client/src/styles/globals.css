@@ -546,3 +546,16 @@
   max-width: 1200px;
   margin: 0 auto;
 }
+/* ── Category card glow hover ──────────────────────────────────
+   Native CSS :hover instead of JS mouseenter/mouseleave handlers
+   that mutated inline styles per event. --card-glow is set once
+   per card (a static per-render inline style, not per mouse event)
+   and the browser handles the hover transition itself. ── */
+.category-card {
+  transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+}
+.category-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 60px var(--card-glow, rgba(0, 0, 0, 0.15)), 0 8px 24px rgba(0, 0, 0, 0.3);
+  border-color: var(--card-glow, transparent);
+}

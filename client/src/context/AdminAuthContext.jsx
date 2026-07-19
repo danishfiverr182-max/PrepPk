@@ -30,8 +30,20 @@ export function AdminAuthProvider({ children }) {
   const navigate = useNavigate();
 
   // ── Restore session on mount (e.g. after a page refresh) ─────
+  //
+  // Perf note: this provider wraps the entire app (App.jsx), but every
+  // consumer of useAdminAuth() lives inside admin-only pages/components.
+  // Public visitors — the vast majority of pageviews — never need this,
+  // so firing it unconditionally cost every public pageview one extra
+  // wasted round-trip to the server. Same fix already applied to the
+  // other admin session check in AuthContext.jsx.
   useEffect(() => {
     let isMounted = true;
+
+    if (!window.location.pathname.startsWith("/admin")) {
+      setLoading(false);
+      return;
+    }
 
     adminApi
       .get("/me")

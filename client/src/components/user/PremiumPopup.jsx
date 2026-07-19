@@ -138,7 +138,7 @@ export default function PremiumPopup({ onClose, onLoginClick, intent = null }) {
               style={{
                 background: "rgba(0,230,118,0.15)",
                 border: "1px solid rgba(0,230,118,0.3)",
-                color: "#00e676",
+                color: "#0F3D3A",
               }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />

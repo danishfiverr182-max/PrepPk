@@ -10,7 +10,7 @@
  *  - Floating decorative orbs
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 import { Link } from "react-router-dom";
 import api from "../../api/axios";
 import { usePublicCategories } from "../context/PublicCategoriesContext";
@@ -52,6 +52,19 @@ function useCountUp(target, duration = 1800) {
   return display;
 }
 
+// ── Isolated leaf so 60fps count-up frames don't re-render the whole hero ──
+const AnimatedCounter = memo(function AnimatedCounter({ target }) {
+  const displayCount = useCountUp(target === false ? 0 : (target ?? null));
+  return (
+    <span
+      className="font-heading font-black tabular-nums block gradient-text-gold"
+      style={{ fontSize: "2.5rem", lineHeight: 1 }}
+    >
+      {displayCount.toLocaleString()}+
+    </span>
+  );
+});
+
 // ── Animated word cycler ────────────────────────────────────
 function AnimatedForce({ forces }) {
   const [idx, setIdx] = useState(0);
@@ -90,9 +103,6 @@ export default function HeroSection() {
   const { categories } = usePublicCategories();
   const forces = categories.map((c) => c.name);
   const [totalMcqs, setTotalMcqs] = useState(null);
-  const displayCount = useCountUp(
-    totalMcqs === false ? 0 : (totalMcqs ?? null),
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -208,12 +218,7 @@ export default function HeroSection() {
             ) : (
               <>
                 <div className="text-center">
-                  <span
-                    className="font-heading font-black tabular-nums block gradient-text-gold"
-                    style={{ fontSize: "2.5rem", lineHeight: 1 }}
-                  >
-                    {displayCount.toLocaleString()}+
-                  </span>
+                  <AnimatedCounter target={totalMcqs} />
                   <span className="text-slate-500 dark:text-purple-300 text-xs mt-1 block tracking-wide uppercase">
                     MCQs Available
                   </span>

@@ -64,6 +64,7 @@ export default function AdminUsersPage() {
   const [viewUserId, setViewUserId] = useState(null);
   const [extendTarget, setExtendTarget] = useState(null);
   const [resetTarget, setResetTarget] = useState(null); // { _id, email }
+  const [forceLogoutId, setForceLogoutId] = useState(null);
 
   const debounceRef = useRef(null);
 
@@ -127,6 +128,18 @@ export default function AdminUsersPage() {
       toast.error(err.response?.data?.message || "Failed to delete user.");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleForceLogout(user) {
+    setForceLogoutId(user._id);
+    try {
+      await api.post(`/admin/users/${user._id}/force-logout`);
+      toast.success(`${user.email}'s session was cleared — they can log in again now.`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to clear session.");
+    } finally {
+      setForceLogoutId(null);
     }
   }
 
@@ -320,6 +333,34 @@ export default function AdminUsersPage() {
                               d="M15 7a2 2 0 0 1 2 2m4 0a6 6 0 0 1-7.743 5.743L11 17H9v2H7v2H4a1 1 0 0 1-1-1v-2.586a1 1 0 0 1 .293-.707l5.964-5.964A6 6 0 1 1 21 9z"
                             />
                           </svg>
+                        </button>
+
+                        {/* Force Logout — clears a stuck/active session so
+                            the user (or you, while testing) can log back
+                            in on this or any device */}
+                        <button
+                          title="Force Logout (clear active session)"
+                          onClick={() => handleForceLogout(user)}
+                          disabled={forceLogoutId === user._id}
+                          className="p-1.5 rounded-lg text-brand hover:text-brand-dark hover:bg-bg disabled:opacity-40 transition"
+                        >
+                          {forceLogoutId === user._id ? (
+                            <span className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin inline-block" />
+                          ) : (
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h4a3 3 0 0 1 3 3v1"
+                              />
+                            </svg>
+                          )}
                         </button>
 
                         {/* Delete */}
