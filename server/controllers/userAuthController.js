@@ -65,23 +65,58 @@ export async function login(req, res) {
     // Credentials are valid at this point, so it's safe to reveal that the
     // account is already in use elsewhere without leaking info to guessers.
     //
+    // The intent is to block the SAME credentials being used to log in on
+    // two different DEVICES at once — not to block a second tab on the
+    // same device. Cookies are shared across every tab of one browser but
+    // never shared across different browsers/devices, so the userToken
+    // cookie already on this request (if any) is exactly the right signal
+    // for "is this the same device that owns the active session". Without
+    // this check, a second tab on the very same device calling /login
+    // looks identical to a totally different device — both are just "a
+    // login attempt while a session is already active" — so it was being
+    // rejected too.
+    let sameDeviceReLogin = false;
+    const existingToken = req.cookies?.userToken;
+    if (existingToken && user.activeSessionId) {
+      try {
+        const decodedExisting = jwt.verify(existingToken, process.env.JWT_SECRET);
+        if (
+          String(decodedExisting.id) === String(user._id) &&
+          decodedExisting.sid === user.activeSessionId
+        ) {
+          sameDeviceReLogin = true;
+        }
+      } catch {
+        // Missing/expired/foreign cookie — treat as a normal login attempt.
+      }
+    }
+
     // Claiming is done as one atomic findOneAndUpdate (rather than a
     // read-then-write) so that two near-simultaneous login requests from
     // different devices can't both pass the check and both win a session.
-    const sessionId = crypto.randomUUID();
+    const sessionId = sameDeviceReLogin ? user.activeSessionId : crypto.randomUUID();
     const sessionExpiresAt = new Date(Date.now() + SESSION_MAX_AGE_MS);
 
-    const claimed = await PremiumUser.findOneAndUpdate(
-      {
-        _id: user._id,
-        $or: [
-          { activeSessionId: null },
-          { activeSessionExpiresAt: { $lte: new Date() } },
-        ],
-      },
-      { activeSessionId: sessionId, activeSessionExpiresAt: sessionExpiresAt },
-      { new: true }
-    );
+    const claimed = sameDeviceReLogin
+      ? // Same device that already owns the session: just extend it. Reusing
+        // the same sessionId (rather than minting a new one) means any other
+        // tab on this device stays valid too, instead of being kicked out.
+        await PremiumUser.findOneAndUpdate(
+          { _id: user._id, activeSessionId: user.activeSessionId },
+          { activeSessionExpiresAt: sessionExpiresAt },
+          { new: true }
+        )
+      : await PremiumUser.findOneAndUpdate(
+          {
+            _id: user._id,
+            $or: [
+              { activeSessionId: null },
+              { activeSessionExpiresAt: { $lte: new Date() } },
+            ],
+          },
+          { activeSessionId: sessionId, activeSessionExpiresAt: sessionExpiresAt },
+          { new: true }
+        );
 
     if (!claimed) {
       return res.status(409).json({ code: "SESSION_ACTIVE", message: SESSION_MESSAGE });

@@ -366,13 +366,13 @@ export default function TestTable({
   // Local copy for optimistic removal without re-fetching the full list
   const [tests, setTests] = useState(initialTests);
 
-  // Sync when parent passes a fresh list (pagination / refresh)
-  // We use a ref-based comparison to avoid an infinite loop
-  const prevInitialRef = useState(() => initialTests)[0];
-  if (prevInitialRef !== initialTests) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useState(() => setTests(initialTests));
-  }
+  // Sync when parent passes a fresh list (pagination / refresh / category
+  // switch). This must be a real effect, not a conditionally-called hook,
+  // or React throws "Rendered more hooks than during the previous render"
+  // whenever the condition's truthiness differs between renders.
+  useEffect(() => {
+    setTests(initialTests);
+  }, [initialTests]);
 
   // Removes the deleted test locally and shifts the testNumber of every
   // other test that came after it down by 1, mirroring the renumbering

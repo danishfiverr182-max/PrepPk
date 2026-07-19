@@ -6,6 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import HeroSection from "../../public/components/HeroSection";
 import CategoryCardsSection from "../../public/components/CategoryCardsSection";
 import StatsBar from "../../public/components/StatsBar";
+import TestimonialsSection from "../../public/components/TestimonialsSection";
 import WhyPremiumSection from "../../public/components/WhyPremiumSection";
 import SeoHead from "../../components/SeoHead";
 import { useSeoMeta } from "../../hooks/useSeoMeta";
@@ -37,6 +38,9 @@ export default function HomePage() {
 
       {/* ── Category Cards Grid ──────────────────────────── */}
       <CategoryCardsSection premiumUser={premiumUser} onLockedClick={handleLockedClick} />
+
+      {/* ── Student Testimonials ──────────────────────────── */}
+      {!premiumUser && <TestimonialsSection />}
 
       {/* ── Why Go Premium? Section ──────────────────────── */}
       {!premiumUser && (

@@ -306,7 +306,7 @@ export default function CategoryPage() {
       {!isLoggedIn && !loading && (
         <div className="mt-10 bg-brand-dark text-white rounded-2xl p-6 text-center">
           <p className="font-bold text-base mb-1">Ready to unlock all tests?</p>
-          <p className="text-blue-200 text-sm mb-4">1 Week Rs. 300 · 1 Month Rs. 1,000</p>
+          <p className="text-blue-200 text-sm mb-4">1 Week Rs. 300 <strong>or</strong> 1 Month Rs. 1,000</p>
           <button
             onClick={() => openPremiumPopup({ mode: "visitor" })}
             className="bg-accent hover:bg-accent-dark text-white font-bold text-sm px-6 py-2.5 rounded-full transition"

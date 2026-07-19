@@ -55,17 +55,8 @@ function CategoryCard({ category, premiumUser, onLockedClick, themeIndex }) {
 
   return (
     <div
-      className="group relative rounded-2xl overflow-hidden transition-all duration-400 cursor-pointer bg-white/60 border border-slate-300 dark:bg-white/5 dark:border-white/10 backdrop-blur-md"
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = `0 20px 60px ${theme.glow}, 0 8px 24px rgba(0,0,0,0.3)`;
-        e.currentTarget.style.transform = "translateY(-6px)";
-        e.currentTarget.style.borderColor = `var(--tw-border-opacity) ? ${theme.glow} : ${theme.glow}`; // fallback
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "";
-        e.currentTarget.style.transform = "";
-        e.currentTarget.style.borderColor = "";
-      }}
+      className="category-card group relative rounded-2xl overflow-hidden cursor-pointer bg-white/60 border border-slate-300 dark:bg-white/5 dark:border-white/10 backdrop-blur-md"
+      style={{ "--card-glow": theme.glow }}
     >
       {/* Colored top border */}
       <div className={`h-1 bg-gradient-to-r ${theme.gradient}`} />

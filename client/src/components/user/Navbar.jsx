@@ -219,7 +219,7 @@ export default function Navbar({ onLoginClick, testMode = false }) {
             <div className="flex items-center gap-1 py-1.5">
               <div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
                 <NavLink to="/" end className={navLinkClass}>
-                  <IoHomeSharp className="inline mr-2 text-lg" />
+                  <IoHomeSharp className="inline-block -mt-0.5 mr-2 text-lg" />
                   Home
                 </NavLink>
 
@@ -345,7 +345,7 @@ export default function Navbar({ onLoginClick, testMode = false }) {
         <nav className="hidden md:block px-4 md:px-8 border-b border-slate-200 dark:border-white/5">
           <div className="flex items-center gap-0.5 py-1 overflow-x-auto scrollbar-none">
             <NavLink to="/" end className={navLinkClass}>
-              <IoHomeSharp className="inline mr-2 text-lg" />
+              <IoHomeSharp className="inline-block -mt-0.5 mr-2 text-lg" />
               Home
             </NavLink>
 
