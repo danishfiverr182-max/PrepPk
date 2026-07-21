@@ -6,6 +6,13 @@
  *  - Glowing input focus rings
  *  - Gradient submit button
  *  - Contact info section
+ *
+ * Changes in this revision:
+ *  - "Contact admin to buy premium." is now a real button that opens
+ *    the PremiumPopup via the `onUpgradeClick` prop, wired from UserLayout.
+ *  - The idle-timer suppression during login is now handled directly in
+ *    UserLayout.jsx (useIdleAutoPopup is told showLogin is a "popup open"
+ *    state too), so this file no longer needs a window-event workaround.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -13,19 +20,22 @@ import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
 import { usePublicSettings } from "../../public/context/PublicSettingsContext";
 import toast from "react-hot-toast";
+import { FaUnlockKeyhole } from "react-icons/fa6";
 
 function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />;
+  return (
+    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  );
 }
 
-export default function LoginModal({ onClose, onLoginSuccess }) {
+export default function LoginModal({ onClose, onLoginSuccess, onUpgradeClick }) {
   const { setPremiumUser } = useAuth();
   const { phone, whatsappNumber, email: adminEmail } = usePublicSettings();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [showPass, setShowPass] = useState(false);
 
   const backdropRef = useRef(null);
@@ -37,14 +47,18 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
   }, []);
 
   useEffect(() => {
-    function onKey(e) { if (e.key === "Escape") onClose(); }
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, []);
 
   async function handleLogin() {
@@ -69,19 +83,25 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
         onClose();
       }
     } catch (err) {
-      const status  = err.response?.status;
+      const status = err.response?.status;
       const message = err.response?.data?.message;
 
       if (status === 401) {
         setError("Invalid username or password.");
       } else if (status === 423) {
-        setError(message || "Too many failed attempts. Please try again in 15 minutes.");
+        setError(
+          message ||
+            "Too many failed attempts. Please try again in 15 minutes.",
+        );
       } else if (status === 403) {
-        setError(message || "Your access has expired. Please contact the admin to renew.");
+        setError(
+          message ||
+            "Your access has expired. Please contact the admin to renew.",
+        );
       } else if (status === 409) {
         setError(
           message ||
-            "This account is already logged in on another device. Please log out from the other device before logging in here."
+            "This account is already logged in on another device. Please log out from the other device before logging in here.",
         );
       } else {
         setError(message || "Login failed. Please try again.");
@@ -95,8 +115,18 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     if (e.key === "Enter" && !loading) handleLogin();
   }
 
+  function handleUpgradeClick() {
+    if (typeof onUpgradeClick === "function") {
+      onUpgradeClick();
+    } else {
+      onClose();
+    }
+  }
+
   const displayPhone = phone || whatsappNumber;
-  const whatsappLink = whatsappNumber ? `https://wa.me/${whatsappNumber}` : null;
+  const whatsappLink = whatsappNumber
+    ? `https://wa.me/${whatsappNumber}`
+    : null;
 
   const inputClass = `
     w-full text-sm rounded-xl px-4 py-3 outline-none transition-all duration-200
@@ -126,23 +156,22 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
             ×
           </button>
           <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl bg-white/50 dark:bg-white/10"
-            >
-              🔑
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl bg-white/50 dark:bg-white/10">
+              <FaUnlockKeyhole />
             </div>
             <div>
               <h2 className="font-heading font-bold text-slate-900 dark:text-white text-lg leading-tight">
                 Login to PrepPK
               </h2>
-              <p className="text-slate-500 dark:text-purple-300/70 text-xs mt-0.5">Access your premium tests</p>
+              <p className="text-slate-500 dark:text-purple-300/70 text-xs mt-0.5">
+                Access your premium tests
+              </p>
             </div>
           </div>
         </div>
 
         {/* ── Body ──────────────────────────────────────── */}
         <div className="px-6 py-6 space-y-4">
-
           {/* Username */}
           <div>
             <label className="text-xs font-bold text-brand dark:text-purple-400/70 uppercase tracking-widest block mb-2">
@@ -158,8 +187,15 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
               placeholder="your@email.com"
               autoComplete="username"
               className={inputClass}
-              onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-brand)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(108,99,255,0.15)"; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = ""; e.currentTarget.style.boxShadow = "none"; }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "var(--color-brand)";
+                e.currentTarget.style.boxShadow =
+                  "0 0 0 3px rgba(108,99,255,0.15)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </div>
 
@@ -179,8 +215,15 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                 autoComplete="current-password"
                 className={inputClass}
                 style={{ paddingRight: "2.8rem" }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "var(--color-brand)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(108,99,255,0.15)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = ""; e.currentTarget.style.boxShadow = "none"; }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "var(--color-brand)";
+                  e.currentTarget.style.boxShadow =
+                    "0 0 0 3px rgba(108,99,255,0.15)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
               <button
                 type="button"
@@ -208,17 +251,25 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
             onClick={handleLogin}
             disabled={loading}
             className="w-full font-heading font-bold py-3.5 rounded-2xl text-white text-sm transition-all duration-300 hover:scale-105 disabled:opacity-60 disabled:scale-100 flex items-center justify-center gap-2"
-            style={{ background: "linear-gradient(135deg, #6C63FF 0%, #a855f7 100%)" }}
+            style={{
+              background: "linear-gradient(135deg, #6C63FF 0%, #a855f7 100%)",
+            }}
           >
             {loading && <Spinner />}
-            {loading ? "Logging in…" : "🚀 Login"}
+            {loading ? "Logging in…" : "Login"}
           </button>
 
           {/* Admin contact */}
           <div className="pt-4 space-y-2 border-t border-slate-200 dark:border-white/10">
             <p className="text-xs text-center text-slate-500 dark:text-purple-400/60">
               Don't have access yet?{" "}
-              <span className="text-brand dark:text-purple-300">Contact admin to buy premium.</span>
+              <button
+                type="button"
+                onClick={handleUpgradeClick}
+                className="text-brand dark:text-purple-300 underline underline-offset-2 hover:text-brand-dark dark:hover:text-white transition font-medium"
+              >
+                Contact admin to buy premium.
+              </button>
             </p>
             <div className="flex flex-col items-center gap-1.5">
               {displayPhone && whatsappLink && (
@@ -233,7 +284,9 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
                 </a>
               )}
               {displayPhone && !whatsappLink && (
-                <span className="text-xs text-slate-500 dark:text-purple-300/70 font-semibold">📞 {displayPhone}</span>
+                <span className="text-xs text-slate-500 dark:text-purple-300/70 font-semibold">
+                  📞 {displayPhone}
+                </span>
               )}
               {adminEmail && (
                 <a

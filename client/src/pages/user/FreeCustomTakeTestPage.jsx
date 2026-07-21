@@ -20,7 +20,7 @@
  *     with { result, mcqs, sectionName, testId, userAnswers }
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, memo } from "react";
 import {
   useParams,
   useNavigate,
@@ -155,7 +155,10 @@ function OptionCard({ label, text, selected, onClick, index }) {
 }
 
 // ── Sidebar Grid Navigator ────────────────────────────────────
-function GridNavigator({ total, current, answers, onJump }) {
+// Memoized: total/current/answers/onJump only change when the user actually
+// navigates or answers, not every second — without this, the countdown
+// timer's per-second tick in the parent re-renders every question button.
+const GridNavigator = memo(function GridNavigator({ total, current, answers, onJump }) {
   return (
     <div className="grid grid-cols-5 gap-2 max-w-full">
       {Array.from({ length: total }, (_, i) => {
@@ -187,7 +190,7 @@ function GridNavigator({ total, current, answers, onJump }) {
       })}
     </div>
   );
-}
+});
 
 // ── Collapsible mobile navigation drawer ───────────────────────
 function NavDrawer({

@@ -19,7 +19,7 @@ const router = express.Router();
 router.get("/contact", async (_req, res) => {
   try {
     const settings = await AdminSettings.findOne({ _singleton: true })
-      .select("phone whatsappNumber email weekPrice monthPrice monthOriginalPrice")
+      .select("phone whatsappNumber email weekPrice monthPrice monthOriginalPrice aiChatbotEnabled")
       .lean();
 
     // Cache for 5 minutes pricing rarely changes
@@ -34,6 +34,7 @@ router.get("/contact", async (_req, res) => {
         weekPrice:          300,
         monthPrice:         1000,
         monthOriginalPrice: 1200,
+        aiChatbotEnabled:   true,
       });
     }
 
@@ -44,6 +45,7 @@ router.get("/contact", async (_req, res) => {
       weekPrice:          settings.weekPrice          ?? 300,
       monthPrice:         settings.monthPrice         ?? 1000,
       monthOriginalPrice: settings.monthOriginalPrice ?? 1200,
+      aiChatbotEnabled:   settings.aiChatbotEnabled   ?? true,
     });
   } catch (err) {
     console.error("[publicSettings] GET /contact →", err.message);
@@ -54,6 +56,7 @@ router.get("/contact", async (_req, res) => {
       weekPrice:          300,
       monthPrice:         1000,
       monthOriginalPrice: 1200,
+      aiChatbotEnabled:   true,
     });
   }
 });

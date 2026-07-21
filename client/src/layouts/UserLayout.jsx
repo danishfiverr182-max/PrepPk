@@ -19,6 +19,7 @@ import Navbar from "../components/user/Navbar";
 import Footer from "../components/user/Footer";
 import LoginModal from "../components/user/LoginModal";
 import PremiumPopup from "../components/user/PremiumPopup";
+import ChatWidget from "../components/chat/ChatWidget";
 import PublicErrorBoundary from "../public/components/PublicErrorBoundary";
 import { useAuth } from "../context/AuthContext";
 import useIdleAutoPopup from "../public/hooks/useIdleAutoPopup";
@@ -87,8 +88,10 @@ export default function UserLayout() {
     setShowPremium(true);
   }
 
-  // 30-second idle auto-popup (skipped when user is logged in)
-  useIdleAutoPopup(openPremiumPopup, showPremium, !!premiumUser);
+  // 30-second idle auto-popup (skipped when user is logged in, and
+  // suppressed while either modal is already open — including LoginModal,
+  // so it can't pop up over/behind an in-progress login).
+  useIdleAutoPopup(openPremiumPopup, showPremium || showLogin, !!premiumUser);
 
   // ── Detect "taking a test" routes ───────────────────────────────────────
   // On these routes we hide the logo/free-tests/login row and the footer so
@@ -141,6 +144,10 @@ export default function UserLayout() {
         <LoginModal
           onClose={() => setShowLogin(false)}
           onLoginSuccess={handleLoginSuccess}
+          onUpgradeClick={() => {
+            setShowLogin(false);
+            openPremiumPopup();
+          }}
         />
       )}
 
@@ -150,6 +157,17 @@ export default function UserLayout() {
           onClose={() => setShowPremium(false)}
           onLoginClick={(intent) => openLoginModal(intent)}
         />
+      )}
+
+      {/* ── AI Chatbot (Part 11) ──────────────────────────────────
+          Mounted for every user-facing route EXCEPT the two immersive
+          timed-test routes (premium TakeTestPage, free-mock
+          TestSectionPage)   isImmersiveTestRoute already detects exactly
+          those two path patterns above, so the widget can't distract or
+          be misused as a cheat tool during an actual timed test.
+          Never rendered on admin routes since AdminLayout doesn't import it. */}
+      {!isImmersiveTestRoute && (
+        <ChatWidget openLoginModal={openLoginModal} openPremiumPopup={openPremiumPopup} />
       )}
     </div>
   );

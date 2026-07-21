@@ -18,6 +18,7 @@ router.patch("/settings", verifyAdmin, async (req, res) => {
     const {
       phone, whatsappNumber, email,
       weekPrice, monthPrice, monthOriginalPrice,
+      aiChatbotEnabled,
     } = req.body;
 
     const updates = {};
@@ -31,6 +32,9 @@ router.patch("/settings", verifyAdmin, async (req, res) => {
     if (weekPrice          !== undefined) updates.weekPrice          = Number(weekPrice);
     if (monthPrice         !== undefined) updates.monthPrice         = Number(monthPrice);
     if (monthOriginalPrice !== undefined) updates.monthOriginalPrice = Number(monthOriginalPrice);
+
+    // AI Chatbot kill switch (Part 11   Prompt 5)
+    if (aiChatbotEnabled !== undefined) updates.aiChatbotEnabled = Boolean(aiChatbotEnabled);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No valid fields provided to update." });
@@ -51,6 +55,7 @@ router.patch("/settings", verifyAdmin, async (req, res) => {
         weekPrice:          updated.weekPrice,
         monthPrice:         updated.monthPrice,
         monthOriginalPrice: updated.monthOriginalPrice,
+        aiChatbotEnabled:   updated.aiChatbotEnabled,
       },
     });
   } catch (err) {

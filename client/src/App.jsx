@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
+import { ChatProvider } from "./context/ChatContext";
 import ProtectedAdminRoute from "./components/admin/ProtectedAdminRoute";
 import AdminErrorBoundary from "./components/admin/AdminErrorBoundary";
 import PublicErrorBoundary from "./public/components/PublicErrorBoundary";
@@ -45,6 +46,12 @@ const AdminLoginPage     = lazy(() => import("./pages/admin/AdminLoginPage"));
 const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage"));
 const AdminAddTestPage   = lazy(() => import("./pages/admin/AdminAddTestPage"));
 const AdminUsersPage     = lazy(() => import("./pages/admin/AdminUsersPage"));
+
+// AI Chatbot analytics (Part 11   Prompt 5)
+const ChatAnalyticsPage  = lazy(() => import("./pages/admin/ChatAnalyticsPage"));
+
+// AI Chatbot key pool admin UI (Part 12   Prompt 9)
+const ApiKeyPoolPage = lazy(() => import("./pages/admin/ApiKeyPoolPage"));
 
 // Admin auth page (Part 2)
 const AdminAuth = lazy(() => import("./pages/admin/AdminAuth"));
@@ -104,23 +111,25 @@ function RootProviders() {
   return (
     <AuthProvider>
       <AdminAuthProvider>
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            style: {
-              fontSize: "14px",
-              background: isDark ? "#1E293B" : "#fff",
-              color: isDark ? "#F1F5F9" : "#1E293B",
-              border: "1px solid",
-              borderColor: isDark ? "#334155" : "#CBD5E1",
-            },
-            success: { duration: 3000 },
-            error:   { duration: 4000 },
-          }}
-        />
-        <Suspense fallback={<PageLoadingFallback />}>
-          <Outlet />
-        </Suspense>
+        <ChatProvider>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              style: {
+                fontSize: "14px",
+                background: isDark ? "#1E293B" : "#fff",
+                color: isDark ? "#F1F5F9" : "#1E293B",
+                border: "1px solid",
+                borderColor: isDark ? "#334155" : "#CBD5E1",
+              },
+              success: { duration: 3000 },
+              error: { duration: 4000 },
+            }}
+          />
+          <Suspense fallback={<PageLoadingFallback />}>
+            <Outlet />
+          </Suspense>
+        </ChatProvider>
       </AdminAuthProvider>
     </AuthProvider>
   );
@@ -223,6 +232,8 @@ const router = createBrowserRouter([
           { path: "/admin/dashboard", element: <AdminDashboardPage /> },
           { path: "/admin/add-test/:category", element: <AdminAddTestPage /> },
           { path: "/admin/users",     element: <AdminUsersPage /> },
+          { path: "/admin/chat-analytics", element: <ChatAnalyticsPage /> },
+          { path: "/admin/api-keys", element: <ApiKeyPoolPage /> },
 
           // Free Mock Tests
           { path: "/admin/free-mock-tests",                                              element: <FreeMockTestsAdminPage /> },

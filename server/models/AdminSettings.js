@@ -21,6 +21,11 @@ const adminSettingsSchema = new mongoose.Schema(
     monthPrice:          { type: Number, default: 1000 },
     monthOriginalPrice:  { type: Number, default: 1200 },
 
+    // ── AI Chatbot kill switch (Part 11   Prompt 5) ───────────
+    // Lets the admin instantly hide the floating chat widget site-wide
+    // (e.g. if the free Groq quota runs out) without a redeploy.
+    aiChatbotEnabled: { type: Boolean, default: true },
+
     // Sentinel ensures findOneAndUpdate upsert is always safe
     _singleton: { type: Boolean, default: true, unique: true },
   },

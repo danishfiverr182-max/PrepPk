@@ -158,6 +158,35 @@
   background-color: rgba(255, 255, 255, 0.4);
 }
 
+/* ── Scrollbar for the AI chat message list ────────────────────
+   Thin, brand-tinted, rounded thumb that fades in as a subtle
+   accent rather than a heavy default OS scrollbar. Track stays
+   transparent so it doesn't add visual weight when not needed. */
+.chat-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(29, 78, 216, 0.35) transparent;
+}
+.chat-scrollbar::-webkit-scrollbar { width: 5px; }
+.chat-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(29, 78, 216, 0.35);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.chat-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(29, 78, 216, 0.55);
+}
+.dark .chat-scrollbar {
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+.dark .chat-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.35);
+}
+.dark .chat-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.55);
+}
+
 /* ── MobileNavOverlay slide-in animation ──────────────────── */
 @keyframes slideInLeft {
   from { transform: translateX(-100%); }

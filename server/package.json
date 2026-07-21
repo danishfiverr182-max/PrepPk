@@ -5,11 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:unit": "node --test tests/aiKeyPool.spec.js",
     "dev": "node --watch index.js",
     "start": "node index.js",
     "seed": "node seedCategories.js",
     "migrate:mcqs": "node scripts/migrateMcqsToOwnCollection.js",
-    "cleanup:mcqs": "node scripts/cleanupMcqsEmbeddedField.js"
+    "cleanup:mcqs": "node scripts/cleanupMcqsEmbeddedField.js",
+    "test:keys": "node scripts/testAllKeys.js"
   },
   "keywords": [],
   "author": "",

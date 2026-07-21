@@ -16,7 +16,7 @@
  *   const { admin, isAuthenticated, loading, setAdmin, logout } = useAdminAuth();
  */
 
-import { createContext, useContext, useCallback, useEffect, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import adminApi from "../api/adminApi";
 
@@ -73,16 +73,19 @@ export function AdminAuthProvider({ children }) {
     navigate(ADMIN_PATH, { replace: true });
   }, [navigate]);
 
+  const value = useMemo(
+    () => ({
+      admin,                    // { name, email, avatar } | null
+      setAdmin,                 // update after sign-up / login / OAuth
+      loading,                  // true while the initial /me check is in flight
+      isAuthenticated: !!admin, // derived convenience flag
+      logout,                   // clears cookie + state + redirects
+    }),
+    [admin, loading, logout]
+  );
+
   return (
-    <AdminAuthContext.Provider
-      value={{
-        admin,                    // { name, email, avatar } | null
-        setAdmin,                 // update after sign-up / login / OAuth
-        loading,                  // true while the initial /me check is in flight
-        isAuthenticated: !!admin, // derived convenience flag
-        logout,                   // clears cookie + state + redirects
-      }}
-    >
+    <AdminAuthContext.Provider value={value}>
       {children}
     </AdminAuthContext.Provider>
   );

@@ -201,8 +201,18 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
 //  Phase 2 — MCQ Editor
 // ─────────────────────────────────────────────────────────────
 
+// Stable client-side identity for MCQs that don't have a server _id yet.
+// Used only for React's `key` prop so a card's identity survives array
+// shifts (e.g. deleting an earlier MCQ), instead of being tied to its
+// position in the array.
+let mcqClientKeySeq = 0;
+function makeClientKey() {
+  mcqClientKeySeq += 1;
+  return `local-${Date.now()}-${mcqClientKeySeq}`;
+}
+
 function blankMcq() {
-  return { question: "", options: ["", "", "", ""], correctOption: 0 };
+  return { clientKey: makeClientKey(), question: "", options: ["", "", "", ""], correctOption: 0 };
 }
 
 const OPTION_LETTERS = ["A", "B", "C", "D"];
@@ -298,7 +308,11 @@ const McqPhase = forwardRef(function McqPhase(
   ref
 ) {
   const navigate = useNavigate();
-  const [mcqs, setMcqs] = useState(initialMcqs);
+  // initialMcqs come from the server with a real `_id` already — reuse it
+  // as the stable clientKey so keys never change once assigned.
+  const [mcqs, setMcqs] = useState(() =>
+    initialMcqs.map((m) => ({ ...m, clientKey: m.clientKey ?? m._id ?? makeClientKey() }))
+  );
 
   // Number of MCQs already confirmed saved on the server (as individual Mcq
   // documents in the new collection). Everything at index < lastSavedIndex
@@ -748,7 +762,7 @@ const McqPhase = forwardRef(function McqPhase(
                 const saved = index < lastSavedIndex;
                 return (
                   <McqCard
-                    key={index}
+                    key={mcq.clientKey ?? index}
                     index={index}
                     mcq={mcq}
                     onChange={handleChange}

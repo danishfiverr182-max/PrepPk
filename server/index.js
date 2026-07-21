@@ -58,6 +58,15 @@ import publicTestReviewRoutes from "./routes/publicTestReview.js";
 // Part 10   Scoring engine (persistent results for both free and premium tests)
 import scoringRoutes from "./routes/scoringRoutes.js";
 
+// Part 11   AI Chatbot ("PrepPk AI Study Assistant", powered by Groq)
+import chatRoutes from "./routes/chatRoutes.js";
+
+// Part 11   Prompt 5: admin-facing chatbot analytics
+import adminChatAnalyticsRoutes from "./routes/adminChatAnalytics.js";
+
+// Part 12: multi-provider API key vault for the chatbot's key pool
+import apiKeyRoutes from "./routes/apiKeyRoutes.js";
+
 // Prompt 69 dynamic XML sitemap
 import sitemapRouter from "./routes/sitemap.js";
 
@@ -72,6 +81,8 @@ const REQUIRED_ENV = [
   "EMAIL_HOST",
   "EMAIL_USER",
   "EMAIL_PASS",
+  "GROQ_API_KEY",
+  "ENCRYPTION_KEY",
 ];
 
 const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
@@ -289,6 +300,18 @@ app.use("/api/free-tests", publicTestReviewRoutes);
 
 // ── Part 10: Scoring engine ───────────────────────────────────────────────────
 app.use("/api/results", scoringRoutes);
+
+// ── Part 11: AI Chatbot feature ("PrepPk AI Study Assistant", Groq-powered) ──
+// Free-tier chatbot available to both guests and logged-in premium users;
+// optionalUser (inside chatRoutes) identifies which, without blocking guests.
+app.use("/api/chat", chatRoutes);
+
+// Admin-only chatbot analytics dashboard data (Part 11   Prompt 5)
+app.use("/api/admin", adminChatAnalyticsRoutes);
+
+// Admin-managed vault of provider API keys (Groq/Gemini/OpenAI/Anthropic/
+// OpenRouter) that the chatbot draws from as a pool (Part 12).
+app.use("/api/admin", apiKeyRoutes);
 
 // ── Custom category test groups (Prompt 2: group + MCQ creation) ──────────
 import testGroupRoutes from "./routes/testGroupRoutes.js";

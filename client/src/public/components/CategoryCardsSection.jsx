@@ -13,23 +13,46 @@ import { Link } from "react-router-dom";
 import { usePublicCategories } from "../context/PublicCategoriesContext";
 import CategoryLockMessage from "./CategoryLockMessage";
 import { optimizeCloudinaryUrl } from "../../utils/optimizeCloudinaryUrl";
+import { BsUnlockFill } from "react-icons/bs";
 
 // ── Category color themes (cycles through) ──────────────────
 const CARD_THEMES = [
-  { gradient: "from-purple-600 to-indigo-600", glow: "rgba(108, 99, 255, 0.4)", emoji: "🎖️" },
-  { gradient: "from-blue-500 to-cyan-500",     glow: "rgba(59, 130, 246, 0.4)",  emoji: "⚓" },
-  { gradient: "from-emerald-500 to-teal-600",  glow: "rgba(16, 185, 129, 0.4)", emoji: "✈️" },
-  { gradient: "from-orange-500 to-red-500",    glow: "rgba(249, 115, 22, 0.4)", emoji: "🏅" },
-  { gradient: "from-pink-500 to-rose-600",     glow: "rgba(236, 72, 153, 0.4)", emoji: "📋" },
-  { gradient: "from-yellow-500 to-amber-600",  glow: "rgba(245, 158, 11, 0.4)", emoji: "⚡" },
+  {
+    gradient: "from-purple-600 to-indigo-600",
+    glow: "rgba(108, 99, 255, 0.4)",
+    emoji: "🎖️",
+  },
+  {
+    gradient: "from-blue-500 to-cyan-500",
+    glow: "rgba(59, 130, 246, 0.4)",
+    emoji: "⚓",
+  },
+  {
+    gradient: "from-emerald-500 to-teal-600",
+    glow: "rgba(16, 185, 129, 0.4)",
+    emoji: "✈️",
+  },
+  {
+    gradient: "from-orange-500 to-red-500",
+    glow: "rgba(249, 115, 22, 0.4)",
+    emoji: "🏅",
+  },
+  {
+    gradient: "from-pink-500 to-rose-600",
+    glow: "rgba(236, 72, 153, 0.4)",
+    emoji: "📋",
+  },
+  {
+    gradient: "from-yellow-500 to-amber-600",
+    glow: "rgba(245, 158, 11, 0.4)",
+    emoji: "⚡",
+  },
 ];
 
 // ── Skeleton card ─────────────────────────────────────────────
 function SkeletonCard() {
   return (
-    <div
-      className="rounded-2xl overflow-hidden animate-pulse bg-slate-200 border border-slate-300 dark:bg-white/5 dark:border-white/10"
-    >
+    <div className="rounded-2xl overflow-hidden animate-pulse bg-slate-200 border border-slate-300 dark:bg-white/5 dark:border-white/10">
       <div className="h-1.5 bg-slate-300 dark:bg-white/10" />
       <div className="p-6 space-y-4">
         <div className="flex items-center gap-3">
@@ -51,7 +74,9 @@ function CategoryCard({ category, premiumUser, onLockedClick, themeIndex }) {
   const coverImageUrl = category.coverImageUrl || category.image || "";
   // Card renders at h-40 (160px), so 480px covers even a 3x-density
   // phone screen without shipping a full-resolution original.
-  const optimizedCoverImageUrl = optimizeCloudinaryUrl(coverImageUrl, { width: 480 });
+  const optimizedCoverImageUrl = optimizeCloudinaryUrl(coverImageUrl, {
+    width: 480,
+  });
 
   return (
     <div
@@ -88,14 +113,22 @@ function CategoryCard({ category, premiumUser, onLockedClick, themeIndex }) {
           {isLoggedIn ? (
             <span
               className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ background: "rgba(0, 230, 118, 0.2)", border: "1px solid rgba(0, 230, 118, 0.4)", color: "#00e676" }}
+              style={{
+                background: "rgba(0, 230, 118, 0.2)",
+                border: "1px solid rgba(0, 230, 118, 0.4)",
+                color: "#00e676",
+              }}
             >
               ✓ Unlocked
             </span>
           ) : (
             <span
               className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ background: "rgba(245, 197, 66, 0.15)", border: "1px solid rgba(245, 197, 66, 0.35)", color: "#F5C542" }}
+              style={{
+                background: "rgba(245, 197, 66, 0.15)",
+                border: "1px solid rgba(245, 197, 66, 0.35)",
+                color: "#F5C542",
+              }}
             >
               🔒 Premium
             </span>
@@ -155,18 +188,16 @@ export default function CategoryCardsSection({ premiumUser, onLockedClick }) {
       <div className="relative z-10 max-w-6xl mx-auto">
         {/* Section header */}
         <div className="text-center mb-12">
-          <span
-            className="inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded-full mb-4 text-brand dark:text-purple-400 bg-brand/10 border border-brand/20"
-          >
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold tracking-widest uppercase px-3 py-1.5 rounded-full mb-4 text-brand dark:text-purple-400 bg-brand/10 border border-brand/20">
             <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
             Available Categories
           </span>
           <h2 className="font-heading font-black text-3xl md:text-4xl text-slate-900 dark:text-white mb-3">
-            Choose Your{" "}
-            <span className="gradient-text">Category</span>
+            Choose Your <span className="gradient-text">Category</span>
           </h2>
           <p className="text-slate-600 dark:text-purple-300/70 text-base max-w-xl mx-auto">
-            Select a service branch to browse full mock tests Army, Navy, Air Force and more.
+            Select a service branch to browse full mock tests Army, Navy, Air
+            Force and more.
           </p>
         </div>
 
@@ -177,8 +208,12 @@ export default function CategoryCardsSection({ premiumUser, onLockedClick }) {
           ) : categories.length === 0 ? (
             <div className="col-span-full text-center py-16 text-slate-500 dark:text-purple-300/60">
               <div className="text-5xl mb-4">🔒</div>
-              <p className="font-semibold text-slate-900 dark:text-white">More categories coming soon</p>
-              <p className="text-sm mt-1">We're adding new mock test categories regularly.</p>
+              <p className="font-semibold text-slate-900 dark:text-white">
+                More categories coming soon
+              </p>
+              <p className="text-sm mt-1">
+                We're adding new mock test categories regularly.
+              </p>
             </div>
           ) : (
             categories.map((category, i) => (
@@ -195,11 +230,14 @@ export default function CategoryCardsSection({ premiumUser, onLockedClick }) {
 
         {/* Upsell hint for visitors */}
         {!premiumUser && !loading && categories.length > 0 && (
-          <div
-            className="mt-10 text-center p-6 rounded-2xl bg-brand/5 border border-brand/20 dark:bg-brand/10"
-          >
+          <div className="mt-10 text-center p-6 rounded-2xl bg-brand/5 border border-brand/20 dark:bg-brand/10">
             <p className="text-slate-600 dark:text-purple-200/80 text-sm">
-              🔓 <strong className="text-slate-900 dark:text-white">Unlock all categories:</strong> Access Army, Navy, Air Force, KPPSC, FPSC and more with a single premium subscription.
+              <BsUnlockFill className="inline mr-1 align-[-1px]" />
+              <strong className="text-slate-900 dark:text-white">
+                Unlock all categories:
+              </strong>{" "}
+              Access Army, Navy, Air Force, KPPSC, FPSC and more with a single
+              premium subscription.
             </p>
           </div>
         )}

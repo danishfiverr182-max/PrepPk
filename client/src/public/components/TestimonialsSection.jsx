@@ -23,18 +23,18 @@ import ratingIcon from "../../assets/rating.png";
 
 const TESTIMONIALS = [
   {
-    name: "Ayesha K.",
+    name: "Sohila Siddig.",
     role: "Exam Aspirant",
     quote:
-      "This site made my exam prep so much easier. The mock tests really helped me feel ready on the actual day.",
+      "I found the PrepPk Tests to be a smooth and engaging experience. The questions were clear, well-structured, and relevant to the role I applied for.",
     rating: 5,
-    avatarSeed: "Ayesha-K",
+    avatarSeed: "Sohila-S",
   },
   {
     name: "Hamza R.",
     role: "Exam Aspirant",
     quote:
-      "Great platform overall — clean, easy to use, and packed with practice questions. Highly recommend it.",
+      "The platform provides clear candidate insights and scoring, making comparisons straightforward. I also like the quality and relevance of the test content.",
     rating: 5,
     avatarSeed: "Hamza-R",
   },

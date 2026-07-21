@@ -8,6 +8,10 @@
  *  - WhatsApp CTA with pulse animation
  *  - Social proof ("500+ students this month")
  *  - Urgency element
+ *
+ * No functional changes needed in this file for the two requested fixes —
+ * it's rendered as-is when LoginModal calls onUpgradeClick(). Kept here
+ * unchanged so the pair stays easy to diff/reuse.
  */
 
 import { useRef, useEffect, useState } from "react";
