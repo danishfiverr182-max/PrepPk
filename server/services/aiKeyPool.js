@@ -249,6 +249,9 @@ export async function getChatCompletion({ messages, maxTokens, temperature }) {
         messages,
         maxTokens,
         temperature,
+        // Only meaningful for provider: "custom" — every other adapter
+        // ignores an unused baseUrl param since it hardcodes its own URL.
+        baseUrl: keyDoc.baseUrl,
       });
 
       // Success — update health, then return immediately without trying

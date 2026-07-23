@@ -192,6 +192,93 @@ function ProviderBreakdownSection({ data, loading }) {
   );
 }
 
+// ── Chatbot kill switch (moved here from AdminDashboardPage's
+// SettingsPanel   Part 12 follow-up) ───────────────────────────
+// Saves immediately on click (no surrounding "Save Settings" form on this
+// page), reusing the same public GET /settings/contact endpoint for the
+// initial read and the existing PATCH /admin/settings endpoint to write.
+function ChatbotToggleCard() {
+  const [enabled, setEnabled] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get("/settings/contact")
+      .then(({ data }) => {
+        if (!cancelled && typeof data.aiChatbotEnabled === "boolean") {
+          setEnabled(data.aiChatbotEnabled);
+        }
+      })
+      .catch(() => toast.error("Failed to load chatbot visibility setting."))
+      .finally(() => {
+        if (!cancelled) setLoadingData(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function handleToggle() {
+    const next = !enabled;
+    setSaving(true);
+    try {
+      await api.patch("/admin/settings", { aiChatbotEnabled: next });
+      setEnabled(next);
+      toast.success(
+        next ? "Chatbot is now visible to users." : "Chatbot is now hidden site-wide."
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update chatbot visibility.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-surface to-surface border border-border rounded-2xl p-6 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-40 h-40 bg-brand/5 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+
+      <div className="relative z-10 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold text-txt-muted uppercase tracking-widest mb-1">
+            Visibility
+          </p>
+          <p className="text-sm font-medium text-txt-primary">
+            {loadingData
+              ? "Loading…"
+              : enabled
+              ? "Chatbot is visible to users"
+              : "Chatbot is hidden site-wide"}
+          </p>
+          <p className="text-xs text-txt-muted mt-2 max-w-xl leading-relaxed">
+            Turning this off immediately hides the chat icon for every visitor — logged in or
+            not — with no redeploy needed. It does not affect saved API keys, usage history, or
+            analytics.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          onClick={handleToggle}
+          disabled={loadingData || saving}
+          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-60 ${
+            enabled ? "bg-accent" : "bg-border"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+              enabled ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatAnalyticsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -240,11 +327,14 @@ export default function ChatAnalyticsPage() {
 
           <p className="text-txt-secondary text-sm sm:text-base max-w-xl leading-relaxed">
             Anonymized usage numbers for the PrepPk AI Study Assistant   never message
-            content, just counts and timing pulled from server-side logs. Use the
-            Settings page to pause the chatbot entirely if the free API quota runs out.
+            content, just counts and timing pulled from server-side logs. Use the toggle
+            below to pause the chatbot entirely if the free API quota runs out.
           </p>
         </div>
       </div>
+
+      {/* ── Visibility toggle ──────────────────────────────── */}
+      <ChatbotToggleCard />
 
       {/* ── Today ──────────────────────────────────────────── */}
       <WindowStatsRow title="Today" stats={data?.today} loading={loading} />

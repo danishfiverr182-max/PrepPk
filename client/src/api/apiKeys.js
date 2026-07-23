@@ -37,7 +37,9 @@ export function getApiKeys() {
 
 /**
  * POST a new vault entry.
- * @param {{ provider: string, label: string, apiKey: string, model: string }} payload
+ * @param {{ provider: string, label: string, apiKey: string, model: string, baseUrl?: string }} payload
+ *   baseUrl is required only when provider is "custom" (any other
+ *   OpenAI-compatible provider not covered by a dedicated adapter).
  */
 export function addApiKey(payload) {
   return api.post("/admin/api-keys", payload);

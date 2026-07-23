@@ -60,7 +60,7 @@ const chatLogSchema = new Schema({
   },
   provider: {
     // Part 12 — Prompt 8: which pool provider actually served the reply
-    // ("groq" | "gemini" | "openai" | "anthropic" | "openrouter"), or null
+    // ("groq" | "gemini" | "openai" | "anthropic" | "openrouter" | "custom"), or null
     // if the request never reached the key pool (blocked by validation /
     // content filter / daily cap / NO_KEYS_AVAILABLE before any attempt).
     type: String,

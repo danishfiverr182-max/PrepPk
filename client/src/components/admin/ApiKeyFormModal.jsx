@@ -25,7 +25,7 @@ import { useState, useEffect, useRef } from "react";
 import { addApiKey, testApiKey } from "../../api/apiKeys";
 import { PROVIDER_META, PROVIDER_ORDER } from "./ProviderBadge";
 
-const EMPTY_FORM = { provider: "groq", label: "", model: "", apiKey: "" };
+const EMPTY_FORM = { provider: "groq", label: "", model: "", apiKey: "", baseUrl: "" };
 
 export default function ApiKeyFormModal({ onClose, onSaved }) {
   const [form, setForm] = useState(EMPTY_FORM);
@@ -72,6 +72,15 @@ export default function ApiKeyFormModal({ onClose, onSaved }) {
       next.apiKey = "That key looks too short to be valid.";
     }
 
+    if (form.provider === "custom") {
+      const cleanBaseUrl = form.baseUrl.trim();
+      if (!cleanBaseUrl) {
+        next.baseUrl = "Base URL is required for a custom provider.";
+      } else if (!cleanBaseUrl.startsWith("https://")) {
+        next.baseUrl = 'Base URL must start with "https://".';
+      }
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -86,6 +95,7 @@ export default function ApiKeyFormModal({ onClose, onSaved }) {
         label: form.label.trim(),
         model: form.model.trim(),
         apiKey: form.apiKey.trim(),
+        ...(form.provider === "custom" ? { baseUrl: form.baseUrl.trim() } : {}),
       });
 
       setSavedKey(data.key);
@@ -167,6 +177,20 @@ export default function ApiKeyFormModal({ onClose, onSaved }) {
                 <p className="text-xs text-txt-secondary">
                   Model: <span className="font-mono">{savedKey.model}</span>
                 </p>
+                {savedKey.provider === "custom" && savedKey.baseUrl && (
+                  <p className="text-xs text-txt-secondary">
+                    Endpoint:{" "}
+                    <span className="font-mono break-all">
+                      {(() => {
+                        try {
+                          return new URL(savedKey.baseUrl).hostname;
+                        } catch {
+                          return savedKey.baseUrl;
+                        }
+                      })()}
+                    </span>
+                  </p>
+                )}
                 <p className="text-xs text-txt-secondary">
                   Key: <span className="font-mono">••••••{savedKey.keyPreview}</span>
                 </p>
@@ -234,6 +258,13 @@ export default function ApiKeyFormModal({ onClose, onSaved }) {
                     </option>
                   ))}
                 </select>
+                {form.provider === "custom" && (
+                  <p className="text-xs text-txt-muted mt-1.5 leading-relaxed">
+                    Works with any OpenAI-compatible chat completions API   e.g. Mistral,
+                    Cerebras, DeepSeek, Together AI, Fireworks AI, GitHub Models. Paste the
+                    full endpoint URL below.
+                  </p>
+                )}
               </div>
 
               {/* Label */}
@@ -269,6 +300,29 @@ export default function ApiKeyFormModal({ onClose, onSaved }) {
                 />
                 {errors.model && <p className="text-xs text-danger mt-1">{errors.model}</p>}
               </div>
+
+              {/* Base URL — only for custom (OpenAI-compatible) providers */}
+              {form.provider === "custom" && (
+                <div>
+                  <label className="text-txt-secondary font-medium text-xs block mb-1.5">
+                    API Base URL <span className="text-danger">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.baseUrl}
+                    onChange={(e) => updateField("baseUrl", e.target.value)}
+                    placeholder="https://api.example.com/v1/chat/completions"
+                    className={`w-full bg-surface border text-txt-primary placeholder:text-txt-muted text-sm font-mono rounded-lg px-3 py-2.5 outline-none transition focus:ring-2 focus:ring-brand ${
+                      errors.baseUrl ? "border-danger" : "border-border"
+                    }`}
+                  />
+                  {errors.baseUrl && <p className="text-xs text-danger mt-1">{errors.baseUrl}</p>}
+                  <p className="text-xs text-txt-muted mt-1">
+                    Paste the full chat completions endpoint URL from your provider's docs   used
+                    exactly as given, nothing is appended to it.
+                  </p>
+                </div>
+              )}
 
               {/* API Key */}
               <div>

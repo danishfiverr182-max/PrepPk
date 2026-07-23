@@ -349,6 +349,17 @@ export default function TakeTestPage() {
       selectedOption: answers[qIndex] !== undefined ? answers[qIndex] : null,
     }));
 
+    // mcqId → selectedOption map (same shape the free-mock flow already
+    // uses correctly). Needed downstream by the Review page, which reads
+    // answers by mcq._id — not by the shuffled on-screen position, since
+    // /review re-fetches MCQs independently and must match answers by id.
+    const answersMap = {};
+    mcqs.forEach((mcq, qIndex) => {
+      if (answers[qIndex] !== undefined) {
+        answersMap[mcq._id] = answers[qIndex];
+      }
+    });
+
     const timeTaken = startTimeRef.current
       ? Math.round((Date.now() - startTimeRef.current) / 1000)
       : 0;
@@ -382,6 +393,7 @@ export default function TakeTestPage() {
           state: {
             result,
             mcqs,
+            answers: answersMap,
             sectionName,
             testId,
             sectionKey,

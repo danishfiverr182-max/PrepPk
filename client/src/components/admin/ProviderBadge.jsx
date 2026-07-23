@@ -1,10 +1,13 @@
 /**
  * components/admin/ProviderBadge.jsx  (Part 12   Prompt 9: Key Pool Admin UI)
  *
- * Small "colored dot + label" badge for each of the five providers the
- * ApiKey vault supports (server/models/ApiKey.js's PROVIDERS enum). No
- * brand logos   just a scannable color so the key pool table reads at a
- * glance, same spirit as the existing status Badge component.
+ * Small "colored dot + label" badge for each provider the ApiKey vault
+ * supports (server/models/ApiKey.js's PROVIDERS enum) — five built-in
+ * adapters plus "custom", a generic slot for any other OpenAI-compatible
+ * provider (Mistral, Cerebras, DeepSeek, Together AI, GitHub Models,
+ * etc.) via server/services/providers/customProvider.js. No brand logos
+ *   just a scannable color so the key pool table reads at a glance, same
+ * spirit as the existing status Badge component.
  *
  * Also exports PROVIDER_META so the Add-Key modal's provider dropdown and
  * per-provider model-name placeholder hint can share the exact same list
@@ -40,10 +43,15 @@ export const PROVIDER_META = {
     dot: "bg-indigo-500",
     modelHint: "meta-llama/llama-3.3-70b-instruct",
   },
+  custom: {
+    label: "Custom (OpenAI-compatible)",
+    dot: "bg-teal-500",
+    modelHint: "mistral-large-latest",
+  },
 };
 
 // Stable ordering for the dropdown / grouped table sections.
-export const PROVIDER_ORDER = ["groq", "gemini", "openai", "anthropic", "openrouter"];
+export const PROVIDER_ORDER = ["groq", "gemini", "openai", "anthropic", "openrouter", "custom"];
 
 export default function ProviderBadge({ provider, className = "" }) {
   const meta = PROVIDER_META[provider] || { label: provider || "Unknown", dot: "bg-txt-muted" };

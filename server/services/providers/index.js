@@ -13,6 +13,7 @@ import * as geminiProvider from "./geminiProvider.js";
 import * as openaiProvider from "./openaiProvider.js";
 import * as anthropicProvider from "./anthropicProvider.js";
 import * as openrouterProvider from "./openrouterProvider.js";
+import * as customProvider from "./customProvider.js";
 
 export const providers = {
   groq: groqProvider,
@@ -20,11 +21,12 @@ export const providers = {
   openai: openaiProvider,
   anthropic: anthropicProvider,
   openrouter: openrouterProvider,
+  custom: customProvider,
 };
 
 /**
  * @param {string} providerName   one of: "groq" | "gemini" | "openai" |
- *   "anthropic" | "openrouter"
+ *   "anthropic" | "openrouter" | "custom"
  * @returns {{ chatComplete: Function }}
  * @throws {Error} if providerName isn't a known adapter   this is a
  *   defensive check since the caller (Prompt 6's ApiKey vault) reads

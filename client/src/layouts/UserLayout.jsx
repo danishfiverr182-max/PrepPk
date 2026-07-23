@@ -160,13 +160,15 @@ export default function UserLayout() {
       )}
 
       {/* ── AI Chatbot (Part 11) ──────────────────────────────────
-          Mounted for every user-facing route EXCEPT the two immersive
-          timed-test routes (premium TakeTestPage, free-mock
-          TestSectionPage)   isImmersiveTestRoute already detects exactly
-          those two path patterns above, so the widget can't distract or
-          be misused as a cheat tool during an actual timed test.
+          Mounted for every user-facing route EXCEPT all four active
+          test-taking routes: premium TakeTestPage, free-mock
+          TestSectionPage, CustomTakeTestPage, and FreeCustomTakeTestPage.
+          isTestTakingRoute (defined above) covers all four   using
+          isImmersiveTestRoute here would only hide it on 2 of the 4 and
+          leave it visible during custom/free-custom tests, which defeats
+          the point of a timed mock test if a user can just ask the bot.
           Never rendered on admin routes since AdminLayout doesn't import it. */}
-      {!isImmersiveTestRoute && (
+      {!isTestTakingRoute && (
         <ChatWidget openLoginModal={openLoginModal} openPremiumPopup={openPremiumPopup} />
       )}
     </div>

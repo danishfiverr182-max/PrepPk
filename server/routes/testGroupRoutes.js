@@ -81,6 +81,8 @@ import TestGroup from "../models/TestGroup.js";
 import FreeCustomTest from "../models/FreeCustomTest.js";
 import Mcq from "../models/Mcq.js";
 import { sanitiseSubjectBreakdown } from "../utils/subjectBreakdown.js";
+import { seededShuffle } from "../utils/seededShuffle.js";
+import { createWithNextTestNumber } from "../utils/nextTestNumber.js";
 
 // ── STAGE 2 NOTE (MCQ storage refactor) ────────────────────────
 // FreeCustomTest MCQs now live in the same Mcq collection as premium Test
@@ -92,14 +94,14 @@ import { sanitiseSubjectBreakdown } from "../utils/subjectBreakdown.js";
 
 const router = Router();
 
-// ── Fisher-Yates shuffle ──────────────────────────────────────
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
+// NOTE: the old local shuffle() (Math.random()-based Fisher-Yates) was
+// removed from here. It re-rolled a brand new random order on every
+// single request, so the /mcqs route (take-test) and /review route always
+// produced different orders even for the same test session — Review
+// Question 1 could be a totally different MCQ than Test Question 1, with
+// the user's stored answer silently misapplied to whatever landed in that
+// position. seededShuffle(arr, testId) below is deterministic: the same
+// testId always produces the same order, on every load, including review.
 
 // ─────────────────────────────────────────────────────────────
 //  ADMIN ROUTES — PREMIUM CUSTOM TESTS
@@ -222,22 +224,18 @@ router.post("/free-mock-tests/custom/create", adminAuth, async (req, res) => {
       return res.status(400).json({ message: "groupId is required." });
     }
 
-    const group = await TestGroup.findByIdAndUpdate(
-      groupId,
-      { $inc: { freeTestCount: 1 } },
-      { new: true }
-    );
+    const group = await TestGroup.findById(groupId);
     if (!group) {
       return res.status(404).json({ message: "Test group not found." });
     }
     if (!group.categoryId) {
-      await TestGroup.findByIdAndUpdate(groupId, { $inc: { freeTestCount: -1 } });
       return res.status(400).json({ message: "Test group is missing a categoryId." });
     }
 
-    const testNumber = group.freeTestCount;
-
-    const test = await FreeCustomTest.create({
+    // testNumber computed fresh from live data — see utils/nextTestNumber.js.
+    // Self-healing: deleting a failed/incomplete free test frees its
+    // number for reuse instead of leaving a permanent gap.
+    const test = await createWithNextTestNumber(FreeCustomTest, groupId, (testNumber) => ({
       category: group.categoryId,
       groupId: group._id,
       groupSlug: group.slug,
@@ -249,7 +247,7 @@ router.post("/free-mock-tests/custom/create", adminAuth, async (req, res) => {
       timeLimitSeconds: null,
       totalMcqs: null,
       status: "settings_pending", // admin must save timer + MCQ count before adding MCQs
-    });
+    }));
 
     return res.status(201).json({ ...test.toObject(), groupName: group.name });
   } catch (err) {
@@ -554,8 +552,10 @@ router.post("/free-mock-tests/custom/:testId/publish", adminAuth, async (req, re
 //   1. Delete every Mcq document linked to this test (testModel: "FreeCustomTest").
 //   2. Delete the FreeCustomTest document itself.
 //   3. If it had been published, decrement TestGroup.publishedFreeTestCount.
-//      (groupId's running `freeTestCount` numbering counter is left alone,
-//      same as premium tests, so existing test numbers never get reused.)
+//      (Test numbering itself is no longer a persistent counter   see
+//      utils/nextTestNumber.js. The next test created in this group will
+//      automatically reclaim this testNumber if it was the highest one,
+//      or leave a gap if an earlier/middle test still exists above it.)
 //
 // Response: 200 { message, mcqsDeleted }
 router.delete("/free-mock-tests/custom/:testId", adminAuth, async (req, res) => {
@@ -742,22 +742,16 @@ router.post("/test-groups/:groupId/free-tests", adminAuth, async (req, res) => {
     const { groupId } = req.params;
     const { timeLimitSeconds, totalMcqs } = req.body ?? {};
 
-    const group = await TestGroup.findByIdAndUpdate(
-      groupId,
-      { $inc: { freeTestCount: 1 } },
-      { new: true }
-    );
+    const group = await TestGroup.findById(groupId);
     if (!group) {
       return res.status(404).json({ message: "Test group not found." });
     }
     if (!group.categoryId) {
-      await TestGroup.findByIdAndUpdate(groupId, { $inc: { freeTestCount: -1 } });
       return res.status(400).json({ message: "Test group is missing a categoryId." });
     }
 
-    const testNumber = group.freeTestCount;
-
-    const test = await FreeCustomTest.create({
+    // testNumber computed fresh from live data — see utils/nextTestNumber.js.
+    const test = await createWithNextTestNumber(FreeCustomTest, groupId, (testNumber) => ({
       category: group.categoryId,
       groupId: group._id,
       groupSlug: group.slug,
@@ -766,7 +760,7 @@ router.post("/test-groups/:groupId/free-tests", adminAuth, async (req, res) => {
       timeLimitSeconds: timeLimitSeconds || null,
       totalMcqs: totalMcqs || null,
       status: "in_progress",
-    });
+    }));
 
     return res.status(201).json({ ...test.toObject(), groupName: group.name });
   } catch (err) {
@@ -1038,13 +1032,14 @@ router.get("/free-custom-tests/:testId/mcqs", async (req, res) => {
       .sort({ order: 1 })
       .lean();
 
-    const mcqs = shuffle(
+    const mcqs = seededShuffle(
       mcqDocs.map((m) => ({
         _id: m._id,
         question: m.question,
         options: m.options,
         // correctOption intentionally omitted
-      }))
+      })),
+      testId
     );
 
     res.set("Cache-Control", "no-store");
@@ -1118,7 +1113,12 @@ router.get("/free-custom-tests/:testId/review", async (req, res) => {
       .sort({ order: 1 })
       .lean();
 
-    const mcqs = mcqDocs.map((m, i) => ({
+    // Same deterministic order as the /mcqs route above (seeded by testId
+    // alone   these are standalone tests, no sectionKey) so Review Question
+    // N is guaranteed to be the exact same MCQ as Test Question N.
+    const ordered = seededShuffle(mcqDocs, testId);
+
+    const mcqs = ordered.map((m, i) => ({
       _id: m._id || String(i),
       question: m.question,
       options: m.options,
@@ -1235,12 +1235,13 @@ router.get("/custom-tests/:testId/mcqs", userProtect, async (req, res) => {
       .sort({ order: 1 })
       .lean();
 
-    const mcqs = shuffle(
+    const mcqs = seededShuffle(
       mcqDocs.map((m) => ({
         _id: m._id,
         question: m.question,
         options: m.options,
-      }))
+      })),
+      testId
     );
 
     res.set("Cache-Control", "no-store");
@@ -1320,7 +1321,13 @@ router.get("/custom-tests/:testId/review", userProtect, async (req, res) => {
       .sort({ order: 1 })
       .lean();
 
-    const mcqs = mcqDocs.map((m, i) => ({
+    // Same deterministic order as the /custom-tests/:testId/mcqs route
+    // above (seeded by testId alone   standalone tests have no sectionKey)
+    // so Review Question N is guaranteed to be the exact same MCQ as
+    // Test Question N.
+    const ordered = seededShuffle(mcqDocs, testId);
+
+    const mcqs = ordered.map((m, i) => ({
       _id: m._id || String(i),
       question: m.question,
       options: m.options,

@@ -317,6 +317,17 @@ export default function CustomTakeTestPage() {
       selectedOption: answers[qIndex] !== undefined ? answers[qIndex] : null,
     }));
 
+    // mcqId → selectedOption map for the Result/Review page. The review
+    // route re-fetches MCQs independently (in the same deterministic
+    // seededShuffle order), so answers must be matched by _id, not by
+    // on-screen position — positions only aligned by coincidence before.
+    const userAnswersMap = {};
+    mcqs.forEach((mcq, qIndex) => {
+      if (answers[qIndex] !== undefined) {
+        userAnswersMap[mcq._id] = answers[qIndex];
+      }
+    });
+
     const timeTaken = startTimeRef.current
       ? Math.round((Date.now() - startTimeRef.current) / 1000)
       : 0;
@@ -336,7 +347,7 @@ export default function CustomTakeTestPage() {
             mcqs,
             sectionName,
             testId,
-            userAnswers: answers, // { questionIndex: selectedOptionIndex }
+            userAnswers: userAnswersMap, // { mcqId: selectedOptionIndex }
           },
           replace: true,
         });

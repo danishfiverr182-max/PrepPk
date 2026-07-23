@@ -362,7 +362,7 @@ export default function FreeCustomTakeTestPage() {
             mcqs,
             sectionName,
             testId,
-            userAnswers: answers, // { questionIndex: selectedOptionIndex }
+            userAnswers: answersPayload, // { mcqId: selectedOptionIndex }
           },
           replace: true,
         });

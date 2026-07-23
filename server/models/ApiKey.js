@@ -15,7 +15,7 @@ import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
-const PROVIDERS = ["groq", "gemini", "openai", "anthropic", "openrouter"];
+const PROVIDERS = ["groq", "gemini", "openai", "anthropic", "openrouter", "custom"];
 const STATUSES = ["healthy", "rate_limited", "invalid", "unknown"];
 
 const apiKeySchema = new Schema(
@@ -56,6 +56,25 @@ const apiKeySchema = new Schema(
       type: String,
       required: true,
       trim: true,
+    },
+
+    // Only used when provider === "custom". Full chat-completions endpoint
+    // URL for any OpenAI-compatible provider not covered by a dedicated
+    // adapter (Mistral, Cerebras, DeepSeek, Together AI, GitHub Models,
+    // etc.) — see server/services/providers/customProvider.js. Left null
+    // for every built-in provider, whose adapters already hardcode the
+    // correct URL.
+    baseUrl: {
+      type: String,
+      default: null,
+      trim: true,
+      validate: {
+        validator: function (value) {
+          if (this.provider !== "custom") return true; // irrelevant for built-in providers
+          return typeof value === "string" && value.trim().startsWith("https://");
+        },
+        message: 'baseUrl is required and must start with "https://" when provider is "custom".',
+      },
     },
 
     // Admin manual on/off switch, independent of automatic health status.

@@ -22,8 +22,14 @@ router.get("/contact", async (_req, res) => {
       .select("phone whatsappNumber email weekPrice monthPrice monthOriginalPrice aiChatbotEnabled")
       .lean();
 
-    // Cache for 5 minutes pricing rarely changes
-    res.set("Cache-Control", "public, max-age=300");
+    // NOT cached. This endpoint also carries aiChatbotEnabled, the chatbot
+    // kill switch — an admin needs to flip it and have every open tab pick
+    // up the change on next load, with zero delay. A shared/browser cache
+    // here would mean a toggle silently doesn't take effect for up to
+    // max-age (previously 5 minutes) for anyone who already fetched this
+    // URL. Contact/pricing fields change rarely enough that the cost of
+    // not caching them is negligible next to that risk.
+    res.set("Cache-Control", "no-store");
 
     if (!settings) {
       // No seed doc yet return empty/default values

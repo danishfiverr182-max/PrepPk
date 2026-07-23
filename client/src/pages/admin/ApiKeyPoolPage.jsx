@@ -387,6 +387,17 @@ export default function ApiKeyPoolPage() {
                         >
                           <td className="px-4 py-3 text-txt-primary font-semibold truncate max-w-[180px]">
                             {key.label}
+                            {key.provider === "custom" && key.baseUrl && (
+                              <span className="block text-xs font-normal text-txt-muted truncate">
+                                {(() => {
+                                  try {
+                                    return new URL(key.baseUrl).hostname;
+                                  } catch {
+                                    return key.baseUrl;
+                                  }
+                                })()}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 font-mono text-txt-secondary">
                             ••••••{key.keyPreview}

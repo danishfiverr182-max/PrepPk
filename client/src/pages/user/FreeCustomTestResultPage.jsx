@@ -233,7 +233,7 @@ export default function FreeCustomTestResultPage() {
             <McqReviewCard
               key={mcq._id || i}
               mcq={mcq}
-              userAnswer={userAnswers[i] !== undefined ? userAnswers[i] : undefined}
+              userAnswer={userAnswers[mcq._id]}
               questionNumber={i + 1}
             />
           ))}

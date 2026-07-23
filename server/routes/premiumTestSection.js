@@ -212,15 +212,23 @@ router.get("/:testId/section/:sectionKey/review", userProtect, async (req, res) 
     }
 
     const section = await Section.findById(slot.sectionRef)
-      .select("mcqs")
+      .select("type totalMCQs mcqs")
       .lean();
 
     if (!section) {
       return res.status(404).json({ message: "Section not found." });
     }
 
-    // No shuffle preserve original order for consistent question numbering
-    const mcqs = (section.mcqs ?? []).map((mcq) => ({
+    // Same deterministic order AND same cap used by the mcqs route above
+    // (`${testId}:${sectionKey}` seed, sliced to totalMCQs) — review must
+    // reproduce the EXACT sequence the user actually saw while taking the
+    // test, otherwise "Question 1" here can be a completely different MCQ
+    // than "Question 1" was during the attempt, which makes every stored
+    // answer look mismatched even when it's actually correct.
+    const ordered = seededShuffle(section.mcqs ?? [], `${testId}:${sectionKey}`);
+    const limit   = section.totalMCQs > 0 ? section.totalMCQs : ordered.length;
+
+    const mcqs = ordered.slice(0, limit).map((mcq) => ({
       _id:          mcq._id,
       question:     mcq.question,
       options:      mcq.options,

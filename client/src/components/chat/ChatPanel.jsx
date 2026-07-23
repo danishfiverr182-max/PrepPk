@@ -308,7 +308,7 @@ export default function ChatPanel({
               </span>
             </div>
             <p className="text-[11px] text-txt-muted dark:text-slate-500 text-center mt-1.5 px-1">
-              AI responses may be inaccurate — always verify against official exam material.
+              AI responses may be inaccurate, always verify against official exam material.
             </p>
           </>
         )}

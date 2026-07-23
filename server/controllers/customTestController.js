@@ -30,6 +30,7 @@ import Test from "../models/Test.js";
 import Category from "../models/Category.js";
 import Mcq from "../models/Mcq.js";
 import { sanitiseSubjectBreakdown } from "../utils/subjectBreakdown.js";
+import { createWithNextTestNumber } from "../utils/nextTestNumber.js";
 
 // ── POST /api/test-groups/:groupId/tests ─────────────────────
 // Admin only. Creates a new test inside the given group.
@@ -39,51 +40,49 @@ export async function createCustomTest(req, res) {
     const { groupId } = req.params;
     const { timeLimitSeconds, totalMcqs } = req.body ?? {};
 
-    // Increment testCount atomically and get the new value
-    const updatedGroup = await TestGroup.findByIdAndUpdate(
-      groupId,
-      { $inc: { testCount: 1 } },
-      { new: true }
-    );
+    // Look up the group (no counter increment here anymore — see
+    // utils/nextTestNumber.js for why a persistent counter caused
+    // permanent numbering gaps after a failed/deleted test).
+    const group = await TestGroup.findById(groupId);
 
-    if (!updatedGroup) {
+    if (!group) {
       return res.status(404).json({ message: "Test group not found." });
     }
 
     // FIX: Guard against missing categoryId on the group document.
     // Without this, Test.create() throws a Mongoose validation error
     // ("category is required") which surfaces as a 500.
-    if (!updatedGroup.categoryId) {
-      // Roll back the testCount increment so the counter stays accurate
-      await TestGroup.findByIdAndUpdate(groupId, { $inc: { testCount: -1 } });
+    if (!group.categoryId) {
       return res.status(400).json({
         message: "Test group is missing a categoryId. Please re-create the group.",
       });
     }
 
-    const testNumber = updatedGroup.testCount; // the incremented value IS this test's number
-
-    // Create the test document.
+    // Create the test document. testNumber is computed fresh from the
+    // tests that actually exist in this group right now, so deleting a
+    // failed/incomplete test frees its number for reuse instead of
+    // leaving a permanent gap (e.g. Test 6 fails → deleted → the next
+    // test created becomes Test 6 again, not Test 7).
     // isStandalone: true is critical   it tells the partial index on
     // { category, testNumber } to exclude this document, preventing a
     // duplicate-key collision when multiple groups share the same category.
-    const test = await Test.create({
-      category: updatedGroup.categoryId,
-      groupId: updatedGroup._id,
-      groupSlug: updatedGroup.slug,
+    const test = await createWithNextTestNumber(Test, groupId, (testNumber) => ({
+      category: group.categoryId,
+      groupId: group._id,
+      groupSlug: group.slug,
       testNumber,
       isStandalone: true,          // ← must be true so the correct unique index applies
       passMarkPercentage: 80,
       status: "settings_pending",  // admin must save timer + MCQ count before adding MCQs
       timeLimitSeconds: null,
       totalMcqs: null,
-    });
+    }));
 
     // Return the test with its group info populated
     const populated = await Test.findById(test._id).lean();
     return res.status(201).json({
       ...populated,
-      groupName: updatedGroup.name,
+      groupName: group.name,
     });
   } catch (err) {
     // Log the full error server-side for easier debugging

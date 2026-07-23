@@ -40,6 +40,7 @@ function toSafeApiKey(doc) {
     label: doc.label,
     keyPreview: doc.keyPreview,
     model: doc.model,
+    baseUrl: doc.baseUrl,
     isActive: doc.isActive,
     status: doc.status,
     cooldownUntil: doc.cooldownUntil,
@@ -60,7 +61,7 @@ function toSafeApiKey(doc) {
  */
 export async function createKey(req, res) {
   try {
-    const { provider, label, apiKey, model } = req.body || {};
+    const { provider, label, apiKey, model, baseUrl } = req.body || {};
 
     if (!API_KEY_PROVIDERS.includes(provider)) {
       return res.status(400).json({
@@ -80,6 +81,16 @@ export async function createKey(req, res) {
       return res.status(400).json({ message: "model is required." });
     }
 
+    let cleanBaseUrl = null;
+    if (provider === "custom") {
+      cleanBaseUrl = typeof baseUrl === "string" ? baseUrl.trim() : "";
+      if (!cleanBaseUrl.startsWith("https://")) {
+        return res.status(400).json({
+          message: 'baseUrl is required and must start with "https://" for a custom provider key.',
+        });
+      }
+    }
+
     const rawKey = apiKey.trim();
     const encryptedKey = encrypt(rawKey);
     const keyPreview = rawKey.slice(-4);
@@ -90,6 +101,7 @@ export async function createKey(req, res) {
       encryptedKey,
       keyPreview,
       model: model.trim(),
+      baseUrl: cleanBaseUrl,
       addedBy: req.admin?._id || null,
     });
 
@@ -204,6 +216,7 @@ export async function testKey(req, res) {
         messages: [{ role: "user", content: "Say OK" }],
         maxTokens: 5,
         temperature: 0,
+        baseUrl: existing.baseUrl,
       });
 
       // ── Success: mark healthy, reset failure streak ──────────

@@ -104,6 +104,7 @@ export default function SectionResultPage() {
   // or be recovered via the API fallback below.
   const [result, setResult] = useState(stateData?.result ?? null);
   const [mcqs, setMcqs] = useState(stateData?.mcqs ?? []);
+  const [answers, setAnswers] = useState(stateData?.answers ?? {});
   const [testId, setTestId] = useState(stateData?.testId ?? null);
   const [sectionKey, setSectionKey] = useState(stateData?.sectionKey ?? null);
   const [sectionName, setSectionName] = useState(stateData?.sectionName ?? "");
@@ -259,6 +260,7 @@ export default function SectionResultPage() {
               state={{
                 resultId,
                 mcqs,
+                answers,
                 sectionName: displaySectionName,
                 testId,
                 sectionKey,

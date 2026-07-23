@@ -81,7 +81,11 @@ const REQUIRED_ENV = [
   "EMAIL_HOST",
   "EMAIL_USER",
   "EMAIL_PASS",
-  "GROQ_API_KEY",
+  // GROQ_API_KEY intentionally NOT required here — AI provider keys now live
+  // encrypted in MongoDB (server/models/ApiKey.js), added/rotated via the
+  // admin API Key Pool UI, and read at request-time by aiKeyPool.js. A fresh
+  // deploy boots fine with zero provider keys configured; the chatbot simply
+  // returns "no keys available" until an admin adds at least one key.
   "ENCRYPTION_KEY",
 ];
 
