@@ -8,38 +8,52 @@
 :root {
   --theme-transition: background-color 0.25s ease, border-color 0.25s ease, color 0.15s ease;
 
+  /* ── Color values below are stored as "R G B" triplets, not hex. ──
+     This lets tailwind.config.js consume them via
+     rgb(var(--color-x) / <alpha-value>), which is what makes
+     Tailwind's opacity modifiers (bg-surface/60, border-border/40,
+     etc.) work correctly. Do not switch these back to hex — that
+     breaks the opacity syntax used throughout the app. */
+
   /* Brand — electric indigo */
-  --color-brand: #6C63FF;
-  --color-brand-dark: #4f46e5;
-  --color-brand-light: #EDE9FE;
+  --color-brand: 108 99 255;
+  --color-brand-dark: 79 70 229;
+  --color-brand-darker: 55 48 163;
+  --color-brand-light: 237 233 254;
 
   /* Navy — deep space */
-  --color-navy: #0f0c29;
-  --color-navy-mid: #302b63;
+  --color-navy: 15 12 41;
+  --color-navy-mid: 48 43 99;
+  --color-navy-light: 36 36 62;
 
   /* Accent — gold */
-  --color-accent: #F5C542;
-  --color-accent-dark: #d4a017;
-  --color-accent-light: #FFF8DC;
+  --color-accent: 245 197 66;
+  --color-accent-dark: 212 160 23;
+  --color-accent-darker: 184 134 11;
+  --color-accent-light: 255 248 220;
 
   /* Success */
-  --color-success: #00e676;
-  --color-success-light: #b9f6ca;
+  --color-success: 0 230 118;
+  --color-success-dark: 0 200 83;
+  --color-success-darker: 0 168 67;
+  --color-success-light: 185 246 202;
 
   /* Danger */
-  --color-danger: #ff5252;
-  --color-danger-light: #ffebee;
+  --color-danger: 255 82 82;
+  --color-danger-dark: 211 47 47;
+  --color-danger-darker: 183 28 28;
+  --color-danger-light: 255 235 238;
 
   /* Surfaces */
-  --color-surface: #FFFFFF;
-  --color-bg: #F0F4FF;
-  --color-border: #e2e8f0;
+  --color-surface: 255 255 255;
+  --color-bg: 240 244 255;
+  --color-border: 226 232 240;
 
   /* Text */
-  --color-txt-primary: #1a1a2e;
-  --color-txt-secondary: #4a5568;
-  --color-txt-muted: #a0aec0;
-  --color-txt-on-primary: #FFFFFF;
+  --color-txt-primary: 26 26 46;
+  --color-txt-secondary: 74 85 104;
+  --color-txt-muted: 160 174 192;
+  --color-txt-on-primary: 255 255 255;
 
   /* Dynamic Background Gradients (Light Mode) */
   --bg-layout: linear-gradient(180deg, #F8FAFC 0%, #E2E8F0 100%);
@@ -54,17 +68,17 @@
 }
 
 .dark {
-  --color-bg: #090d16;
-  --color-surface: #111827;
-  --color-border: #1f2937;
-  --color-txt-primary: #F1F5F9;
-  --color-txt-secondary: #94A3B8;
-  --color-txt-muted: #64748B;
+  --color-bg: 9 13 22;
+  --color-surface: 17 24 39;
+  --color-border: 31 41 55;
+  --color-txt-primary: 241 245 249;
+  --color-txt-secondary: 148 163 184;
+  --color-txt-muted: 100 116 139;
 
-  --color-brand: #818cf8;
-  --color-accent: #fbbf24;
-  --color-success: #4ade80;
-  --color-danger: #f87171;
+  --color-brand: 129 140 248;
+  --color-accent: 251 191 36;
+  --color-success: 74 222 128;
+  --color-danger: 248 113 113;
 
   /* Dynamic Background Gradients (Dark Mode) */
   --bg-layout: linear-gradient(180deg, #090d16 0%, #111827 100%);

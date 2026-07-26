@@ -11,7 +11,8 @@
     "seed": "node seedCategories.js",
     "migrate:mcqs": "node scripts/migrateMcqsToOwnCollection.js",
     "cleanup:mcqs": "node scripts/cleanupMcqsEmbeddedField.js",
-    "test:keys": "node scripts/testAllKeys.js"
+    "test:keys": "node scripts/testAllKeys.js",
+    "audit:admins": "node scripts/pruneNonAllowlistedAdmins.js"
   },
   "keywords": [],
   "author": "",

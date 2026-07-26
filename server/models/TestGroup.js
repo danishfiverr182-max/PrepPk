@@ -76,6 +76,19 @@ const testGroupSchema = new Schema(
       default: "",
     },
 
+    // ── SEO fields (matches Category's seoTitle/seoDescription pattern) ──
+    // Admin-written <title> tag for this group's own public page
+    // (GET /category/:categorySlug/:groupSlug), shown in Google search results.
+    seoTitle: {
+      type: String,
+      default: "",
+    },
+    // Admin-written meta description shown under the title in search results.
+    seoDescription: {
+      type: String,
+      default: "",
+    },
+
     // Controls display order of groups within a category
     order: {
       type: Number,

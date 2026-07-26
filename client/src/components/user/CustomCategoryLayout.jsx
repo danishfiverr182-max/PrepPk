@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../../api/axios";
 import AboutSection from "./AboutSection";
 
@@ -36,7 +36,7 @@ function SkeletonGroup() {
 }
 
 // ── Premium test card ─────────────────────────────────────────
-function PremiumTestCard({ test, onStart, onLocked }) {
+export function PremiumTestCard({ test, onStart, onLocked }) {
   const locked = test.locked;
   return (
     <div className={`bg-surface dark:bg-dark-surface rounded-xl border shadow-sm transition-all p-4 flex items-center justify-between gap-4 ${
@@ -74,7 +74,7 @@ function PremiumTestCard({ test, onStart, onLocked }) {
 }
 
 // ── Free test card ────────────────────────────────────────────
-function FreeTestCard({ test, onStart }) {
+export function FreeTestCard({ test, onStart }) {
   return (
     <div className="bg-surface dark:bg-dark-surface rounded-xl border border-success/30 dark:border-green-700/30 shadow-sm hover:shadow-md hover:border-success dark:hover:border-green-600 transition-all p-4 flex items-center justify-between gap-4">
       <div className="min-w-0">
@@ -250,6 +250,7 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
     ...(viewMode === "free" ? freeGroups : groups).map((g) => ({
       id: g.id?.toString(),
       label: g.name,
+      slug: g.slug,
     })),
   ];
 
@@ -376,18 +377,39 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
                 <nav className="space-y-1 sticky top-6">
                   {menuItems.map((item) => {
                     const active = currentActive === item.id;
+                    const activeClasses = viewMode === "free"
+                      ? "bg-success dark:bg-green-600 text-white"
+                      : "bg-brand-dark dark:bg-blue-900/40 text-accent dark:text-blue-300";
+                    const inactiveClasses = "text-txt-secondary dark:text-slate-200 hover:bg-bg dark:hover:bg-dark-surface2 hover:text-txt-primary dark:hover:text-slate-100";
+
+                    // "All Tests" stays an in-page filter (no URL of its own).
+                    // Individual groups now navigate to their own indexable
+                    // public page (/category/:catSlug/:groupSlug) instead of
+                    // just swapping which blogContent/tests are shown here.
+                    if (item.id === "all") {
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setCurrentActive(item.id)}
+                          className={`w-full text-left text-sm font-semibold px-4 py-2.5 rounded-xl transition ${
+                            active ? activeClasses : inactiveClasses
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    }
+
                     return (
-                      <button
+                      <Link
                         key={item.id}
-                        onClick={() => setCurrentActive(item.id)}
-                        className={`w-full text-left text-sm font-semibold px-4 py-2.5 rounded-xl transition ${
-                          active
-                            ? viewMode === "free" ? "bg-success dark:bg-green-600 text-white" : "bg-brand-dark dark:bg-blue-900/40 text-accent dark:text-blue-300"
-                            : "text-txt-secondary dark:text-slate-200 hover:bg-bg dark:hover:bg-dark-surface2 hover:text-txt-primary dark:hover:text-slate-100"
+                        to={`/category/${catSlug}/${item.slug}`}
+                        className={`block w-full text-left text-sm font-semibold px-4 py-2.5 rounded-xl transition ${
+                          active ? activeClasses : inactiveClasses
                         }`}
                       >
                         {item.label}
-                      </button>
+                      </Link>
                     );
                   })}
                 </nav>
@@ -398,18 +420,33 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
                 <div className="flex gap-5 pb-0">
                   {menuItems.map((item) => {
                     const active = currentActive === item.id;
+                    const activeClasses = "text-txt-primary dark:text-slate-100 border-accent";
+                    const inactiveClasses = "text-txt-muted dark:text-slate-500 border-transparent hover:text-txt-secondary dark:hover:text-slate-300";
+
+                    if (item.id === "all") {
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setCurrentActive(item.id)}
+                          className={`shrink-0 text-sm font-semibold pb-2.5 pt-1 transition whitespace-nowrap border-b-2 ${
+                            active ? activeClasses : inactiveClasses
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    }
+
                     return (
-                      <button
+                      <Link
                         key={item.id}
-                        onClick={() => setCurrentActive(item.id)}
+                        to={`/category/${catSlug}/${item.slug}`}
                         className={`shrink-0 text-sm font-semibold pb-2.5 pt-1 transition whitespace-nowrap border-b-2 ${
-                          active
-                            ? "text-txt-primary dark:text-slate-100 border-accent"
-                            : "text-txt-muted dark:text-slate-500 border-transparent hover:text-txt-secondary dark:hover:text-slate-300"
+                          active ? activeClasses : inactiveClasses
                         }`}
                       >
                         {item.label}
-                      </button>
+                      </Link>
                     );
                   })}
                 </div>
@@ -419,12 +456,17 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
               <div className="flex-1 min-w-0 space-y-8">
                 {displayGroups.map((group) => (
                   <div key={group.id}>
-                    {/* Group header in "All Tests" mode */}
+                    {/* Group header in "All Tests" mode — links to the group's
+                        own public page too, so link authority isn't only
+                        distributed via the sidebar/tab menu above. */}
                     {currentActive === "all" && (
                       <div className="flex items-center gap-2 mb-3">
-                        <h2 className="text-xs font-bold uppercase tracking-widest text-txt-muted dark:text-slate-500">
+                        <Link
+                          to={`/category/${catSlug}/${group.slug}`}
+                          className="text-xs font-bold uppercase tracking-widest text-txt-muted dark:text-slate-500 hover:text-txt-secondary dark:hover:text-slate-300 transition"
+                        >
                           {group.name}
-                        </h2>
+                        </Link>
                         {viewMode === "premium" && group.locked && (
                           <span className="text-xs bg-accent-light dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-accent/30 dark:border-amber-700/30 px-1.5 py-0.5 rounded-full">
                             Requires access

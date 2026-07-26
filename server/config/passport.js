@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import Admin from "../models/Admin.js";
+import { isAllowedAdminEmail, maskEmail } from "../utils/adminAllowlist.js";
 
 // ── Build the callback URL ─────────────────────────────────────
 // Prefer an explicit env override; otherwise derive it from the
@@ -26,6 +27,22 @@ passport.use(
 
         if (!email) {
           return done(new Error("Google account has no email."), null);
+        }
+
+        // ── Allowlist gate ────────────────────────────────────────────
+        // This is the boundary that actually matters. Without it, ANY
+        // Google account that reaches the OAuth callback gets a brand-new
+        // verified Admin document created for it automatically (see the
+        // Admin.create() below) — meaning the admin secret URL would be the
+        // *only* thing standing between a random Google sign-in and full
+        // dashboard access. Reject here, before any DB lookup or write.
+        //
+        // `done(null, false, { message })` is Passport's standard "auth
+        // failed" signal — it triggers the route's failureRedirect, exactly
+        // like a wrong password would, rather than throwing an error.
+        if (!isAllowedAdminEmail(email)) {
+          console.warn(`[google-oauth] Blocked sign-in attempt for non-allowlisted email: ${maskEmail(email)}`);
+          return done(null, false, { message: "not_allowed" });
         }
 
         // 1 Look for an existing admin by googleId OR email

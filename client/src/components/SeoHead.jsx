@@ -1,11 +1,13 @@
 /**
- * src/components/SeoHead.jsx  (Prompt 69 SEO Essentials)
+ * src/components/SeoHead.jsx  (Prompt 69 SEO Essentials; updated — noIndex)
  *
  * Thin wrapper around react-helmet-async's <Helmet> that injects:
  *   1. <title>
  *   2. <meta name="description">
  *   3. Open Graph tags (og:title, og:description, og:type, og:url)
  *   4. One or more <script type="application/ld+json"> blocks
+ *   5. Optionally, <meta name="robots" content="noindex, nofollow"> and no
+ *      canonical link, for pages that should never be indexed (404s, etc.)
  *
  * Usage:
  *   <SeoHead
@@ -15,7 +17,17 @@
  *     jsonLd={[courseSchema, breadcrumbSchema]}
  *   />
  *
- * All props are optional defaults are safe generic values.
+ *   <SeoHead title="Page Not Found | PrepPK" noIndex />
+ *
+ * This is the ONE SEO mechanism used across the entire public site — every
+ * public page renders its meta tags through this component rather than a
+ * raw <Helmet>, so title/description/OG/Twitter/canonical/JSON-LD (and now
+ * noindex) all stay consistent by construction. (Admin-only pages, which
+ * are never meant to be indexed or shared and already sit behind
+ * robots.txt's Disallow, are out of scope for this and keep their own
+ * minimal <Helmet> title-only usage.)
+ *
+ * All props are optional   defaults are safe generic values.
  */
 
 import { Helmet } from "react-helmet-async";
@@ -31,6 +43,7 @@ export default function SeoHead({
   url         = DEFAULT_URL,
   ogType      = "website",
   jsonLd      = [],
+  noIndex     = false,
 }) {
   // Normalise jsonLd to always be an array so we can .map() it
   const schemas = Array.isArray(jsonLd) ? jsonLd : [jsonLd];
@@ -40,6 +53,11 @@ export default function SeoHead({
       {/* ── Primary meta ──────────────────────────────────── */}
       <title>{title}</title>
       <meta name="description" content={description} />
+
+      {/* ── Robots override for pages that should never be indexed
+          (404s, etc.) — canonical link is skipped too in this case,
+          since there's no "real" canonical URL for a not-found page. ── */}
+      {noIndex && <meta name="robots" content="noindex, nofollow" />}
 
       {/* ── Open Graph ───────────────────────────────────── */}
       <meta property="og:title"       content={title} />
@@ -54,7 +72,7 @@ export default function SeoHead({
       <meta name="twitter:description" content={description} />
 
       {/* ── Canonical ────────────────────────────────────── */}
-      <link rel="canonical" href={url} />
+      {!noIndex && <link rel="canonical" href={url} />}
 
       {/* ── JSON-LD structured data ───────────────────────
           One <script> tag per schema object.

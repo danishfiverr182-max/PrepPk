@@ -23,6 +23,7 @@ import adminCategoriesRoutes from "./routes/adminCategories.js";
 
 // Part 3 (Prompt 03) admin dashboard stats router
 import adminDashboardRoutes from "./routes/adminDashboard.js";
+import adminSeoHealthRoutes from "./routes/adminSeoHealth.js";
 
 // Part 3 (Prompt 09) public categories router (no auth)
 import publicCategoriesRoutes from "./routes/publicCategories.js";
@@ -87,6 +88,10 @@ const REQUIRED_ENV = [
   // deploy boots fine with zero provider keys configured; the chatbot simply
   // returns "no keys available" until an admin adds at least one key.
   "ENCRYPTION_KEY",
+  // The ONLY email addresses ever allowed to hold admin access — see
+  // utils/adminAllowlist.js. Required so a misconfigured deploy can never
+  // silently boot with "anyone can register as admin" behavior.
+  "ADMIN_ALLOWED_EMAILS",
 ];
 
 const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
@@ -95,6 +100,23 @@ if (missing.length > 0) {
   console.error("   Add them to your .env file and restart the server.");
   process.exit(1);
 }
+
+// ── Guard: ADMIN_ALLOWED_EMAILS must contain at least one real address ──
+// A blank/whitespace-only value would otherwise boot successfully into a
+// state where isAllowedAdminEmail() rejects EVERYONE, including you — fail
+// loudly here instead of discovering it via a confusing 403 later.
+const parsedAdminEmails = process.env.ADMIN_ALLOWED_EMAILS
+  .split(",")
+  .map((e) => e.trim())
+  .filter(Boolean);
+if (parsedAdminEmails.length === 0) {
+  console.error(
+    "❌ ADMIN_ALLOWED_EMAILS is set but contains no valid addresses. " +
+      "Set it to a comma-separated list, e.g. admin1@gmail.com,admin2@gmail.com"
+  );
+  process.exit(1);
+}
+console.log(`🔐 Admin access restricted to ${parsedAdminEmails.length} allow-listed address(es).`);
 
 // ── Guard: JWT_SECRET must be strong (Go-Live Checklist #2) ──────
 // At least 32 characters, and never the placeholder shipped in .env.example.
@@ -276,6 +298,9 @@ app.use("/api/admin/categories", adminCategoriesRoutes);
 // ── Part 3 (Prompt 03) Admin Dashboard Stats (protected) ───
 app.use("/api/admin", adminDashboardRoutes);
 
+// ── SEO health / internal-link diagnostic (protected) ──────
+app.use("/api/admin", adminSeoHealthRoutes);
+
 // ── Part 4 (Prompt 01) Admin Test Management (protected) ───
 // Mount at /api/admin so routes inside become /api/admin/tests/...
 app.use("/api/admin", adminTestsRoutes);
@@ -322,6 +347,19 @@ import testGroupRoutes from "./routes/testGroupRoutes.js";
 app.use("/api", testGroupRoutes);
 // free-custom-tests routes are also inside testGroupRoutes, mounted at /api
 // The router handles /api/free-custom-tests/* paths internally
+
+// ── Standalone blog (admin-authored) ───────────────────────────────────────
+// Fully decoupled from the Category/TestGroup/Test hierarchy   posts don't
+// have to attach to any specific exam category (relatedCategorySlug is an
+// optional soft link only, used for an internal-link CTA on the public post).
+import adminBlogRoutes from "./routes/adminBlogRoutes.js";
+app.use("/api/admin/blog", adminBlogRoutes);
+
+// Public-facing blog endpoints (listing + single post by slug) — this is
+// what actually gets indexed and ranks, so it's unauthenticated and only
+// ever returns status: "published" posts (see publicBlogRoutes.js).
+import publicBlogRoutes from "./routes/publicBlogRoutes.js";
+app.use("/api/blog", publicBlogRoutes);
 
 // ── 404 handler for unmatched /api/* routes ──────────────────
 // Must sit AFTER all route mounts and BEFORE the global error handler.

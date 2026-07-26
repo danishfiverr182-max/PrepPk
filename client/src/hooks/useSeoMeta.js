@@ -10,6 +10,8 @@
  *   "category"     per-category test listing
  *   "free-tests"   free mock tests listing
  *   "test"         individual test hub (takes testTitle)
+ *   "blog"         blog listing page
+ *   "blog-post"    individual blog post (takes a `post` object)
  *
  * Usage:
  *   const { title, description, jsonLd } = useSeoMeta("category", {
@@ -164,6 +166,76 @@ function buildMeta(type, opts = {}) {
       return { title, description, jsonLd };
     }
 
+    // ── Blog listing ─────────────────────────────────────────
+    case "blog": {
+      const title = `Blog | ${SITE_NAME}`;
+      const description =
+        "Tips, guides, and updates on preparing for Pakistan Army, Navy, and Air Force initial tests.";
+      const pageUrl = `${BASE_URL}/blog`;
+      const jsonLd = [
+        {
+          "@context": "https://schema.org",
+          "@type":    "WebPage",
+          "@id":      `${pageUrl}#webpage`,
+          url:        pageUrl,
+          name:       title,
+          description,
+          isPartOf:   { "@id": `${BASE_URL}/#website` },
+        },
+        {
+          "@context": "https://schema.org",
+          "@type":    "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
+            { "@type": "ListItem", position: 2, name: "Blog", item: pageUrl },
+          ],
+        },
+      ];
+      return { title, description, jsonLd };
+    }
+
+    // ── Individual blog post ─────────────────────────────────
+    // opts.post is the raw BlogPost document (title, slug, excerpt,
+    // seoTitle, seoDescription, coverImageUrl, publishedAt, updatedAt).
+    case "blog-post": {
+      const { post = {} } = opts;
+      const title = `${post.seoTitle || post.title || "Blog"} | ${SITE_NAME}`;
+      const description =
+        post.seoDescription || post.excerpt || "Read the latest from PrepPK.";
+      const pageUrl = `${BASE_URL}/blog/${post.slug || ""}`;
+      const blogUrl = `${BASE_URL}/blog`;
+
+      const articleSchema = {
+        "@context": "https://schema.org",
+        "@type":    "BlogPosting",
+        "@id":      `${pageUrl}#article`,
+        headline:   post.title || "",
+        description,
+        image:      post.coverImageUrl || undefined,
+        datePublished: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+        dateModified:  post.updatedAt ? new Date(post.updatedAt).toISOString() : undefined,
+        author:    { "@type": "Organization", name: SITE_NAME },
+        publisher: {
+          "@type": "Organization",
+          name:    SITE_NAME,
+          "@id":   `${BASE_URL}/#organization`,
+        },
+        mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
+      };
+
+      const breadcrumbSchema = {
+        "@context": "https://schema.org",
+        "@type":    "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
+          { "@type": "ListItem", position: 2, name: "Blog", item: blogUrl },
+          { "@type": "ListItem", position: 3, name: post.title || "", item: pageUrl },
+        ],
+      };
+
+      return { title, description, jsonLd: [articleSchema, breadcrumbSchema], url: pageUrl };
+    }
+
     // ── Fallback ──────────────────────────────────────────────
     default:
       return {
@@ -179,7 +251,10 @@ function buildMeta(type, opts = {}) {
  *
  * @param {string} type  "home" | "category" | "free-tests" | "test"
  * @param {object} opts  page-specific options (categoryName, slug, etc.)
- * @returns {{ title: string, description: string, jsonLd: object[] }}
+ * @returns {{ title: string, description: string, jsonLd: object[], url?: string }}
+ *   `url` is only returned by page types that need a non-default canonical
+ *   URL (currently "blog-post"); callers of other types keep passing their
+ *   own `url` prop to <SeoHead> (or rely on its DEFAULT_URL).
  */
 export function useSeoMeta(type, opts = {}) {
   return buildMeta(type, opts);

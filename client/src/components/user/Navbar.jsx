@@ -19,7 +19,7 @@ import toast from "react-hot-toast";
 import MobileNavOverlay from "../../public/components/MobileNavOverlay";
 import ThemeToggle from "../ui/ThemeToggle";
 import { IoHomeSharp } from "react-icons/io5";
-import { Zap } from "lucide-react";
+import { Zap, Newspaper } from "lucide-react";
 import { PiLightningFill } from "react-icons/pi";
 import { CiLogout } from "react-icons/ci";
 
@@ -246,6 +246,13 @@ export default function Navbar({ onLoginClick, testMode = false }) {
                     <span className="hidden sm:inline">Free Mock Tests</span>
                   </span>
                 </NavLink>
+
+                <NavLink to="/blog" className={navLinkClass}>
+                  <span className="hidden sm:inline">Blog</span>
+                  <span className="sm:hidden">
+                    <Newspaper className="w-4 h-4" />
+                  </span>
+                </NavLink>
               </div>
 
               {/* Right side: theme toggle + mobile hamburger */}
@@ -371,6 +378,13 @@ export default function Navbar({ onLoginClick, testMode = false }) {
               <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-300">
                 <Zap className="w-4 h-4" />
                 Free Mock Tests
+              </span>
+            </NavLink>
+
+            <NavLink to="/blog" className={navLinkClass}>
+              <span className="inline-flex items-center gap-1">
+                <Newspaper className="w-4 h-4" />
+                Blogs
               </span>
             </NavLink>
           </div>

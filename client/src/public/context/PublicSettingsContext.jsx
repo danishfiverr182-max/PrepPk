@@ -16,7 +16,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 
-const DEFAULTS = { phone: "", whatsappNumber: "", email: "" };
+const DEFAULTS = { phone: "", whatsappNumber: "", email: "", blogTheme: "classic" };
 
 const PublicSettingsContext = createContext(DEFAULTS);
 
@@ -36,6 +36,7 @@ export function PublicSettingsProvider({ children }) {
             phone:          res.data.phone          || "",
             whatsappNumber: res.data.whatsappNumber || "",
             email:          res.data.email          || "",
+            blogTheme:      res.data.blogTheme      || "classic",
           });
         }
       })

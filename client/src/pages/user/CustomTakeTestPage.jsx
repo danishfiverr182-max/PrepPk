@@ -23,6 +23,11 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../../api/axios";
 import McqImage from "../../public/components/McqImage";
 import { clearTimerStorage } from "../../hooks/useTimer";
+import {
+  loadTestProgress,
+  saveTestProgress,
+  clearTestProgress,
+} from "../../hooks/useTestProgress";
 import TimerDisplay from "../../components/user/TimerDisplay";
 import { FaTriangleExclamation } from "react-icons/fa6";
 
@@ -341,6 +346,7 @@ export default function CustomTakeTestPage() {
       })
       .then((res) => {
         clearTimerStorage(timerKeyRef.current);
+        clearTestProgress("custom", testId, null);
         navigate("/result/custom", {
           state: {
             result: res.data,
@@ -358,6 +364,17 @@ export default function CustomTakeTestPage() {
         setSubmitError("Something went wrong. Please try again.");
       });
   }, [answers, mcqs, navigate, sectionName, testId, submitting]);
+
+  // ── Persist progress on every change (refresh-proofing) ──────────────
+  useEffect(() => {
+    if (!mcqs.length || submittedRef.current) return;
+    saveTestProgress("custom", testId, null, {
+      answers,
+      currentIndex,
+      startTime: startTimeRef.current,
+      mcqs,
+    });
+  }, [answers, currentIndex, mcqs, testId]);
 
   const handleSubmitRef = useRef(handleSubmit);
   useEffect(() => {
@@ -398,7 +415,19 @@ export default function CustomTakeTestPage() {
         }
         setMcqs(fetchedMcqs);
         setSectionName(name || "Test");
-        startTimeRef.current = Date.now();
+
+        // Resume an interrupted attempt instead of restarting from question
+        // 1 — safe because this test's MCQ order is deterministic per
+        // testId (see seededShuffle / hooks/useTestProgress.js).
+        const restored = loadTestProgress("custom", testId, null, fetchedMcqs);
+        if (restored) {
+          setAnswers(restored.answers);
+          setCurrentIndex(restored.currentIndex);
+          startTimeRef.current = restored.startTime;
+        } else {
+          startTimeRef.current = Date.now();
+        }
+
         setTotalSeconds(timeLimitSeconds ?? 1800);
       })
       .catch((err) => {

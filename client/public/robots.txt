@@ -1,0 +1,30 @@
+# client/public/robots.txt
+#
+# No robots.txt existed anywhere in this project prior to this file — this
+# is a static asset (Vite copies client/public/* to the build output root),
+# so it's served at https://www.prepkp.com/robots.txt as-is, unmodified,
+# alongside index.html.
+#
+# IMPORTANT — admin path is hardcoded below, not read from VITE_ADMIN_PATH:
+# this is a static text file, not part of the React build, so it can't read
+# import.meta.env / .env at build time the way client/vite.config.js does.
+# Current value (client/.env / client/.env.example → VITE_ADMIN_PATH):
+#   /admin-x9k2
+# If VITE_ADMIN_PATH is ever changed, the Disallow line below MUST be
+# updated to match manually, or the (old) admin path will stay crawlable.
+
+User-agent: *
+Allow: /
+
+# Admin panel — never meant to be indexed, not linked from anywhere public.
+Disallow: /admin-x9k2
+Disallow: /admin/login
+
+# Live test-taking routes — login-gated, thin/duplicate content per attempt,
+# not meaningfully different from the hub pages that link to them, so
+# there's nothing here worth a crawl budget.
+Disallow: /test/*/section/*
+Disallow: /test/custom/*/take
+Disallow: /test/free-custom/*/take
+
+Sitemap: https://www.prepkp.com/sitemap.xml

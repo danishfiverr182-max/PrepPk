@@ -19,6 +19,11 @@ import api from "../../api/axios";
 import McqImage from "../../public/components/McqImage";
 import safeStorage from "../../public/utils/safeStorage";
 import { clearTimerStorage } from "../../hooks/useTimer";
+import {
+  loadTestProgress,
+  saveTestProgress,
+  clearTestProgress,
+} from "../../hooks/useTestProgress";
 import TimerDisplay from "../../components/user/TimerDisplay";
 import { FaTriangleExclamation } from "react-icons/fa6";
 
@@ -376,6 +381,7 @@ export default function TakeTestPage() {
       .then((res) => {
         const result = res.data;
         clearTimerStorage(timerKeyRef.current);
+        clearTestProgress("premium", testId, sectionKey);
 
         const prev = safeStorage.getJson(LS_KEY(testId), {});
         safeStorage.setJson(LS_KEY(testId), {
@@ -446,7 +452,24 @@ export default function TakeTestPage() {
         }
         setMcqs(fetchedMcqs);
         setSectionName(name);
-        startTimeRef.current = Date.now();
+
+        // Resume an interrupted attempt (refresh/crash/accidental nav)
+        // instead of restarting the section from question 1. Safe because
+        // this section's MCQ order is deterministic per testId:sectionKey
+        // (see seededShuffle) — see hooks/useTestProgress.js for details.
+        const restored = loadTestProgress(
+          "premium",
+          testId,
+          sectionKey,
+          fetchedMcqs,
+        );
+        if (restored) {
+          setAnswers(restored.answers);
+          setCurrentIndex(restored.currentIndex);
+          startTimeRef.current = restored.startTime;
+        } else {
+          startTimeRef.current = Date.now();
+        }
 
         sessionStorage.setItem("lastTestId", testId);
         sessionStorage.setItem("lastSectionKey", sectionKey);
@@ -493,6 +516,17 @@ export default function TakeTestPage() {
     },
     [currentIndex],
   );
+
+  // ── Persist progress on every change (refresh-proofing) ──────────────
+  useEffect(() => {
+    if (!mcqs.length || submittedRef.current) return;
+    saveTestProgress("premium", testId, sectionKey, {
+      answers,
+      currentIndex,
+      startTime: startTimeRef.current,
+      mcqs,
+    });
+  }, [answers, currentIndex, mcqs, testId, sectionKey]);
 
   const goTo = useCallback(
     (index) => {

@@ -1,5 +1,25 @@
 import typography from "@tailwindcss/typography";
 
+// ── Theme-aware color helper ────────────────────────────────────────
+// Reads an "R G B" CSS custom property (defined in src/styles/globals.css,
+// with a light-mode value under :root and a dark-mode override under
+// .dark) and turns it into a Tailwind color function that still supports
+// opacity modifiers like `bg-surface/60`.
+//
+// This is the piece that was previously MISSING: globals.css already
+// defined --color-txt-primary etc. with correct light/dark values, but
+// nothing in this config ever read them — every token below was a
+// hardcoded hex value, so `dark:` class toggling had no visible effect
+// on text-txt-primary, bg-surface, bg-bg, border-border, brand, accent,
+// success, or danger anywhere they were used without an explicit
+// `dark:` override.
+function withOpacity(variableName) {
+  return ({ opacityValue }) =>
+    opacityValue === undefined
+      ? `rgb(var(${variableName}))`
+      : `rgb(var(${variableName}) / ${opacityValue})`;
+}
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: "class",
@@ -13,49 +33,54 @@ export default {
       colors: {
         // ── Core brand ──────────────────────────────────────────────
         brand: {
-          DEFAULT: '#6C63FF',   // electric indigo
-          dark: '#4f46e5',
-          darker: '#3730a3',
-          light: '#EDE9FE',
+          DEFAULT: withOpacity('--color-brand'),   // electric indigo
+          dark: withOpacity('--color-brand-dark'),
+          darker: withOpacity('--color-brand-darker'),
+          light: withOpacity('--color-brand-light'),
         },
         // ── Gold accent for premium / CTAs ───────────────────────────
         accent: {
-          DEFAULT: '#F5C542',
-          dark: '#d4a017',
-          darker: '#b8860b',
-          light: '#FFF8DC',
+          DEFAULT: withOpacity('--color-accent'),
+          dark: withOpacity('--color-accent-dark'),
+          darker: withOpacity('--color-accent-darker'),
+          light: withOpacity('--color-accent-light'),
         },
         // ── Deep navy for hero/navbar ──────────────────────────────
         navy: {
-          DEFAULT: '#0f0c29',
-          mid: '#302b63',
-          light: '#24243e',
+          DEFAULT: withOpacity('--color-navy'),
+          mid: withOpacity('--color-navy-mid'),
+          light: withOpacity('--color-navy-light'),
         },
         // ── Success ────────────────────────────────────────────────
         success: {
-          DEFAULT: '#00e676',
-          dark: '#00c853',
-          darker: '#00a843',
-          light: '#b9f6ca',
+          DEFAULT: withOpacity('--color-success'),
+          dark: withOpacity('--color-success-dark'),
+          darker: withOpacity('--color-success-darker'),
+          light: withOpacity('--color-success-light'),
         },
         // ── Danger ─────────────────────────────────────────────────
         danger: {
-          DEFAULT: '#ff5252',
-          dark: '#d32f2f',
-          darker: '#b71c1c',
-          light: '#ffebee',
+          DEFAULT: withOpacity('--color-danger'),
+          dark: withOpacity('--color-danger-dark'),
+          darker: withOpacity('--color-danger-darker'),
+          light: withOpacity('--color-danger-light'),
         },
-        // ── Neutral surfaces ───────────────────────────────────────
-        surface: '#FFFFFF',
-        bg: '#F0F4FF',
-        border: '#e2e8f0',
+        // ── Neutral surfaces — now theme-aware ──────────────────────
+        surface: withOpacity('--color-surface'),
+        bg: withOpacity('--color-bg'),
+        border: withOpacity('--color-border'),
         txt: {
-          primary: '#1a1a2e',
-          secondary: '#4a5568',
-          muted: '#a0aec0',
-          onPrimary: '#FFFFFF',
+          primary: withOpacity('--color-txt-primary'),
+          secondary: withOpacity('--color-txt-secondary'),
+          muted: withOpacity('--color-txt-muted'),
+          onPrimary: withOpacity('--color-txt-on-primary'),
         },
-        // ── Dark mode ──────────────────────────────────────────────
+        // ── Fixed dark-mode-only tokens (unchanged) ─────────────────
+        // These stay static hex on purpose — components that already
+        // pair them with an explicit `dark:` prefix (e.g.
+        // `bg-surface dark:bg-dark-surface`) keep working exactly as
+        // before; they simply become redundant-but-harmless now that
+        // bg-surface itself is also theme-aware.
         'dark-bg': '#090d16',
         'dark-surface': '#111827',
         'dark-surface2': '#1f2937',

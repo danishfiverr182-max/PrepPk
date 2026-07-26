@@ -13,16 +13,7 @@ import Test from "../models/Test.js";
 import Category from "../models/Category.js";
 import FreeCustomTest from "../models/FreeCustomTest.js";
 import Mcq from "../models/Mcq.js";
-
-// ── Utility: generate a URL-safe slug from a string ──────────
-function generateSlug(str) {
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")   // remove special chars
-    .replace(/\s+/g, "-")            // spaces → hyphens
-    .replace(/-+/g, "-");            // collapse multiple hyphens
-}
+import { generateSlug } from "../utils/slugify.js";
 
 // ── POST /api/test-groups ─────────────────────────────────────
 // Admin only. Creates a new TestGroup within a custom category.
@@ -80,10 +71,61 @@ export async function getGroupsByCategory(req, res) {
 
     const groups = await TestGroup.find({ categorySlug })
       .sort({ order: 1, createdAt: 1 })
-      .select("name slug description blogContent order categorySlug categoryId testCount freeTestCount publishedFreeTestCount createdAt updatedAt")
+      .select("name slug description blogContent seoTitle seoDescription order categorySlug categoryId testCount freeTestCount publishedFreeTestCount createdAt updatedAt")
       .lean();
 
     return res.json(groups);
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Internal server error." });
+  }
+}
+
+// ── GET /api/test-groups/:categorySlug/:groupSlug ─────────────
+// Public. Returns a single TestGroup (all fields, including SEO fields
+// and blogContent) by its category slug + own slug, plus a lightweight
+// summary of its published tests (both premium Test and free
+// FreeCustomTest documents) so the frontend can render a chapter's own
+// page — and list its tests — without a second round trip.
+export async function getGroupBySlug(req, res) {
+  try {
+    const { categorySlug, groupSlug } = req.params;
+
+    const group = await TestGroup.findOne({
+      categorySlug,
+      slug: groupSlug,
+    }).lean();
+
+    if (!group) {
+      return res.status(404).json({ message: "Test group not found." });
+    }
+
+    const [premiumTests, freeTests] = await Promise.all([
+      Test.find({ groupId: group._id, isStandalone: true, status: "published" })
+        .sort({ testNumber: 1 })
+        .select("_id testNumber status")
+        .lean(),
+      FreeCustomTest.find({ groupId: group._id, status: "published" })
+        .sort({ testNumber: 1 })
+        .select("_id testNumber status")
+        .lean(),
+    ]);
+
+    const tests = [
+      ...premiumTests.map((t) => ({
+        _id: t._id,
+        testNumber: t.testNumber,
+        isFree: false,
+        status: t.status,
+      })),
+      ...freeTests.map((t) => ({
+        _id: t._id,
+        testNumber: t.testNumber,
+        isFree: true,
+        status: t.status,
+      })),
+    ];
+
+    return res.json({ ...group, tests });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Internal server error." });
   }

@@ -69,6 +69,22 @@ function KeyPoolIcon() {
   );
 }
 
+function BlogIcon() {
+  return (
+    <svg className="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12h-6a1.125 1.125 0 01-1.125-1.125v-9.75A1.125 1.125 0 018.25 3h5.379a1.5 1.5 0 011.06.44l2.122 2.121a1.5 1.5 0 01.44 1.06V13.5a1.125 1.125 0 01-1.125 1.125z" />
+    </svg>
+  );
+}
+
+function SeoHealthIcon() {
+  return (
+    <svg className="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+
 function CategoryIcon() {
   return (
     <svg className="sidebar-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -246,6 +262,8 @@ export default function AdminNav({ collapsed, onToggleCollapse, onCreateUserClic
         <SidebarNavItem to="/admin/free-mock-tests" icon={<FreeMockIcon />} label="Free Mock Tests" collapsed={collapsed} />
         <SidebarNavItem to="/admin/chat-analytics" icon={<ChatbotIcon />} label="AI Chatbot" collapsed={collapsed} />
         <SidebarNavItem to="/admin/api-keys" icon={<KeyPoolIcon />} label="Key Pool" collapsed={collapsed} />
+        <SidebarNavItem to="/admin/blog" icon={<BlogIcon />} label="Blog" collapsed={collapsed} />
+        <SidebarNavItem to="/admin/seo-health" icon={<SeoHealthIcon />} label="SEO Health" collapsed={collapsed} />
       </nav>
 
       {/* ── Categories section ────────────────────────────────── */}

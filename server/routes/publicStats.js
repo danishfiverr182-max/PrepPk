@@ -53,47 +53,57 @@ router.get("/mcq-count", async (_req, res) => {
     // ── Source 1: Default category tests (MCQs live on Section docs) ──
     // Sections do NOT store a back-reference to their Test (no testId field)
     // the link only exists in the other direction, via
-    // Test.sections.{verbal|nonVerbal|academic}.sectionRef.
-    const publishedDefaultTests = await Test.find(
+    // Test.sections.{verbal|nonVerbal|academic}.sectionRef. We still need
+    // this lookup to finish before we know which section IDs to sum, so it
+    // stays a two-step chain — but sources #2 and #3 don't depend on it or
+    // on each other, so all three sources run concurrently below instead
+    // of as four sequential round trips to Atlas.
+    const defaultTotalPromise = Test.find(
       { isPublished: true, isStandalone: false },
       "sections"
-    ).lean();
+    )
+      .lean()
+      .then((publishedDefaultTests) => {
+        const sectionIds = [];
+        for (const t of publishedDefaultTests) {
+          const slots = t.sections || {};
+          for (const key of ["verbal", "nonVerbal", "academic"]) {
+            const ref = slots[key]?.sectionRef;
+            if (ref) sectionIds.push(ref);
+          }
+        }
 
-    const sectionIds = [];
-    for (const t of publishedDefaultTests) {
-      const slots = t.sections || {};
-      for (const key of ["verbal", "nonVerbal", "academic"]) {
-        const ref = slots[key]?.sectionRef;
-        if (ref) sectionIds.push(ref);
-      }
-    }
-
-    const sectionResult = await Section.aggregate([
-      // Only sections referenced by published tests
-      { $match: { _id: { $in: sectionIds } } },
-      // Project the size of each section's MCQ array
-      { $project: { mcqCount: { $size: { $ifNull: ["$mcqs", []] } } } },
-      // Sum all MCQ counts
-      { $group: { _id: null, total: { $sum: "$mcqCount" } } },
-    ]);
-    const defaultTotal = sectionResult[0]?.total ?? 0;
+        return Section.aggregate([
+          // Only sections referenced by published tests
+          { $match: { _id: { $in: sectionIds } } },
+          // Project the size of each section's MCQ array
+          { $project: { mcqCount: { $size: { $ifNull: ["$mcqs", []] } } } },
+          // Sum all MCQ counts
+          { $group: { _id: null, total: { $sum: "$mcqCount" } } },
+        ]);
+      })
+      .then((sectionResult) => sectionResult[0]?.total ?? 0);
 
     // ── Source 2: Standalone custom category tests (premium) ──
     // These use `status`, not `isPublished`. MCQs now live in the Mcq
     // collection — mcqCount is the denormalized counter kept in sync by
     // the app layer, so just sum it directly.
-    const standaloneResult = await Test.aggregate([
+    const standaloneTotalPromise = Test.aggregate([
       { $match: { isStandalone: true, status: "published" } },
       { $group: { _id: null, total: { $sum: { $ifNull: ["$mcqCount", 0] } } } },
-    ]);
-    const standaloneTotal = standaloneResult[0]?.total ?? 0;
+    ]).then((standaloneResult) => standaloneResult[0]?.total ?? 0);
 
     // ── Source 3: Free custom category tests ──
-    const freeCustomResult = await FreeCustomTest.aggregate([
+    const freeCustomTotalPromise = FreeCustomTest.aggregate([
       { $match: { status: "published" } },
       { $group: { _id: null, total: { $sum: { $ifNull: ["$mcqCount", 0] } } } },
+    ]).then((freeCustomResult) => freeCustomResult[0]?.total ?? 0);
+
+    const [defaultTotal, standaloneTotal, freeCustomTotal] = await Promise.all([
+      defaultTotalPromise,
+      standaloneTotalPromise,
+      freeCustomTotalPromise,
     ]);
-    const freeCustomTotal = freeCustomResult[0]?.total ?? 0;
 
     const totalMcqs = defaultTotal + standaloneTotal + freeCustomTotal;
 

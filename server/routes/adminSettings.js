@@ -19,6 +19,7 @@ router.patch("/settings", verifyAdmin, async (req, res) => {
       phone, whatsappNumber, email,
       weekPrice, monthPrice, monthOriginalPrice,
       aiChatbotEnabled,
+      blogTheme,
     } = req.body;
 
     const updates = {};
@@ -35,6 +36,14 @@ router.patch("/settings", verifyAdmin, async (req, res) => {
 
     // AI Chatbot kill switch (Part 11   Prompt 5)
     if (aiChatbotEnabled !== undefined) updates.aiChatbotEnabled = Boolean(aiChatbotEnabled);
+
+    // Blog reading-page theme site-wide switch
+    if (blogTheme !== undefined) {
+      if (blogTheme !== "classic" && blogTheme !== "medium") {
+        return res.status(400).json({ message: "blogTheme must be 'classic' or 'medium'." });
+      }
+      updates.blogTheme = blogTheme;
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No valid fields provided to update." });
@@ -56,6 +65,7 @@ router.patch("/settings", verifyAdmin, async (req, res) => {
         monthPrice:         updated.monthPrice,
         monthOriginalPrice: updated.monthOriginalPrice,
         aiChatbotEnabled:   updated.aiChatbotEnabled,
+        blogTheme:          updated.blogTheme,
       },
     });
   } catch (err) {

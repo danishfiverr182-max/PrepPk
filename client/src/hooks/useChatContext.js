@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import api from "../api/axios";
+import { getCached } from "../utils/pageDataCache";
 
 const CATEGORY_PAGE_RE = /^\/category\/([^/]+)\/?$/;
 const TEST_HUB_RE = /^\/test\/([^/]+)\/?$/;
@@ -54,6 +55,16 @@ export default function useChatContext() {
 
       if (cacheRef.current[cacheKey]) {
         setPageContext(cacheRef.current[cacheKey]);
+        return;
+      }
+
+      // CategoryPage fetches this exact data for its own rendering — if it
+      // already landed (or lands first), reuse it instead of firing a
+      // second, redundant GET /tests/category/:slug request.
+      const shared = getCached(cacheKey);
+      if (shared) {
+        cacheRef.current[cacheKey] = shared;
+        setPageContext(shared);
         return;
       }
 

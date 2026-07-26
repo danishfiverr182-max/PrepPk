@@ -26,6 +26,14 @@ const adminSettingsSchema = new mongoose.Schema(
     // (e.g. if the free Groq quota runs out) without a redeploy.
     aiChatbotEnabled: { type: Boolean, default: true },
 
+    // ── Blog reading-page theme ────────────────────────────────
+    // "classic" the original blog post layout (BlogPostPage.jsx).
+    // "medium"  the Medium-inspired distraction-free reading layout
+    // (MediumBlogPostPage.jsx). Site-wide switch: every published post
+    // instantly renders in whichever layout is selected here, no
+    // per-post edits required. Reversible at any time.
+    blogTheme: { type: String, enum: ["classic", "medium"], default: "classic" },
+
     // Sentinel ensures findOneAndUpdate upsert is always safe
     _singleton: { type: Boolean, default: true, unique: true },
   },

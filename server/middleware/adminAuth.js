@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
+import { isAllowedAdminEmail } from "../utils/adminAllowlist.js";
 
 export async function protect(req, res, next) {
   try {
@@ -21,6 +22,12 @@ export async function protect(req, res, next) {
     const adminId = decoded.adminId ?? decoded.id;
     const admin = await Admin.findById(adminId).select("-password -verificationCode -verificationExpires");
     if (!admin) {
+      return res.status(401).json({ message: "Not authenticated." });
+    }
+
+    // Same instant-revocation check as verifyAdmin.js — see that file for
+    // the full rationale.
+    if (!isAllowedAdminEmail(admin.email)) {
       return res.status(401).json({ message: "Not authenticated." });
     }
 

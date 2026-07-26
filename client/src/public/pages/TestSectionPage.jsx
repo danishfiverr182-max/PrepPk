@@ -22,6 +22,11 @@ import api from "../../api/axios";
 import McqImage from "../components/McqImage";
 import safeStorage from "../utils/safeStorage";
 import { clearTimerStorage } from "../../hooks/useTimer";
+import {
+  loadTestProgress,
+  saveTestProgress,
+  clearTestProgress,
+} from "../../hooks/useTestProgress";
 import TimerDisplay from "../../components/user/TimerDisplay";
 import { FaTriangleExclamation } from "react-icons/fa6";
 
@@ -339,6 +344,7 @@ export default function TestSectionPage() {
       .then((res) => {
         const result = res.data;
         clearTimerStorage(timerKeyRef.current);
+        clearTestProgress("freeMock", testId, sectionKey);
 
         const lsKey = `freeTest_${testId}`;
         const prev = safeStorage.getJson(lsKey, {});
@@ -405,6 +411,21 @@ export default function TestSectionPage() {
         }
         setMcqs(fetchedMcqs);
         setSectionName(name);
+
+        // Resume an interrupted attempt instead of restarting from question
+        // 1 — safe because this section's MCQ order is deterministic per
+        // testId:sectionKey (see seededShuffle / hooks/useTestProgress.js).
+        const restored = loadTestProgress(
+          "freeMock",
+          testId,
+          sectionKey,
+          fetchedMcqs,
+        );
+        if (restored) {
+          setAnswers(restored.answers);
+          setCurrentIndex(restored.currentIndex);
+        }
+
         setTotalSeconds(timeLimitSeconds ?? 600);
       })
       .catch((err) => {
@@ -448,6 +469,16 @@ export default function TestSectionPage() {
     },
     [total],
   );
+
+  // ── Persist progress on every change (refresh-proofing) ──────────────
+  useEffect(() => {
+    if (!mcqs.length || submittedRef.current) return;
+    saveTestProgress("freeMock", testId, sectionKey, {
+      answers,
+      currentIndex,
+      mcqs,
+    });
+  }, [answers, currentIndex, mcqs, testId, sectionKey]);
 
   // ── Keyboard Shortcuts Hook ──────────────────────────────────
   useEffect(() => {

@@ -158,6 +158,15 @@ export default function MobileNavOverlay({
             <span className="text-base">⚡</span>
             <span className="text-amber-600 dark:text-yellow-300">Free Mock Tests</span>
           </NavLink>
+
+          <NavLink
+            to="/blog"
+            className={linkClass}
+            onClick={onClose}
+          >
+            <span className="text-base">📰</span>
+            Blog
+          </NavLink>
         </nav>
 
         {/* Auth footer */}

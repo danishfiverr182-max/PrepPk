@@ -19,7 +19,7 @@ const router = express.Router();
 router.get("/contact", async (_req, res) => {
   try {
     const settings = await AdminSettings.findOne({ _singleton: true })
-      .select("phone whatsappNumber email weekPrice monthPrice monthOriginalPrice aiChatbotEnabled")
+      .select("phone whatsappNumber email weekPrice monthPrice monthOriginalPrice aiChatbotEnabled blogTheme")
       .lean();
 
     // NOT cached. This endpoint also carries aiChatbotEnabled, the chatbot
@@ -41,6 +41,7 @@ router.get("/contact", async (_req, res) => {
         monthPrice:         1000,
         monthOriginalPrice: 1200,
         aiChatbotEnabled:   true,
+        blogTheme:          "classic",
       });
     }
 
@@ -52,6 +53,7 @@ router.get("/contact", async (_req, res) => {
       monthPrice:         settings.monthPrice         ?? 1000,
       monthOriginalPrice: settings.monthOriginalPrice ?? 1200,
       aiChatbotEnabled:   settings.aiChatbotEnabled   ?? true,
+      blogTheme:          settings.blogTheme          || "classic",
     });
   } catch (err) {
     console.error("[publicSettings] GET /contact →", err.message);
@@ -63,6 +65,7 @@ router.get("/contact", async (_req, res) => {
       monthPrice:         1000,
       monthOriginalPrice: 1200,
       aiChatbotEnabled:   true,
+      blogTheme:          "classic",
     });
   }
 });

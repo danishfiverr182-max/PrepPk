@@ -17,6 +17,12 @@ import DeleteCategoryDialog from "../../components/admin/DeleteCategoryDialog";
 import AddTestDropdown from "../../components/admin/AddTestDropdown";
 import TestGroupPanel from "../../components/admin/TestGroupPanel";
 import { useAdminCategories } from "../../context/CategoriesContext";
+import SeoCharCounter, {
+  SEO_TITLE_SOFT_LIMIT,
+  SEO_TITLE_HARD_LIMIT,
+  SEO_DESC_SOFT_LIMIT,
+  SEO_DESC_HARD_LIMIT,
+} from "../../components/admin/SeoCharCounter";
 
 // ── Icons ─────────────────────────────────────────────────────
 function ChevronRightIcon() {
@@ -102,6 +108,8 @@ function GroupBlogTab({ categorySlug }) {
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [selectedId, setSelectedId] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
   const [blogContent, setBlogContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -118,6 +126,8 @@ function GroupBlogTab({ categorySlug }) {
         setGroups(g);
         if (g.length > 0) {
           setSelectedId(g[0]._id);
+          setSeoTitle(g[0].seoTitle || "");
+          setSeoDescription(g[0].seoDescription || "");
           setBlogContent(g[0].blogContent || "");
         }
       })
@@ -129,6 +139,8 @@ function GroupBlogTab({ categorySlug }) {
   function handleSelectGroup(id) {
     setSelectedId(id);
     const g = groups.find((x) => x._id === id);
+    setSeoTitle(g?.seoTitle || "");
+    setSeoDescription(g?.seoDescription || "");
     setBlogContent(g?.blogContent || "");
   }
 
@@ -175,12 +187,19 @@ function GroupBlogTab({ categorySlug }) {
     if (!selectedId) return;
     setSaving(true);
     try {
-      await api.patch(`/test-groups/${selectedId}/blog`, { blogContent });
-      // Update local cache so switching away & back shows saved value
+      // Two separate endpoints (Prompt 1 kept /seo separate from the
+      // existing /blog endpoint so this save button just fires both).
+      await Promise.all([
+        api.patch(`/test-groups/${selectedId}/blog`, { blogContent }),
+        api.patch(`/test-groups/${selectedId}/seo`, { seoTitle, seoDescription }),
+      ]);
+      // Update local cache so switching away & back shows saved values
       setGroups((prev) =>
-        prev.map((g) => (g._id === selectedId ? { ...g, blogContent } : g)),
+        prev.map((g) =>
+          g._id === selectedId ? { ...g, blogContent, seoTitle, seoDescription } : g,
+        ),
       );
-      toast.success("Group blog content saved.");
+      toast.success("Group content & SEO saved.");
     } catch (err) {
       toast.error(
         err.response?.data?.message || "Failed to save. Please try again.",
@@ -217,12 +236,12 @@ function GroupBlogTab({ categorySlug }) {
     <div className="bg-surface/60 border border-border rounded-2xl p-6 space-y-5">
       <div>
         <h2 className="text-base font-bold text-txt-primary mb-1">
-          Group Blog Content
+          Group SEO &amp; Content
         </h2>
         <p className="text-xs text-txt-secondary">
-          Select a group, then write HTML content for it. On the public page,
-          this content appears below the test list only when a user has that
-          group selected in the sub-menu.
+          Select a group, then set its SEO title/description and write blog
+          content for it. On the public page, this content appears on that
+          group's own page.
         </p>
       </div>
 
@@ -243,6 +262,43 @@ function GroupBlogTab({ categorySlug }) {
             </option>
           ))}
         </select>
+      </div>
+
+      {/* SEO Title */}
+      <div>
+        <label className="block text-xs font-semibold text-txt-secondary mb-1.5">
+          SEO Title
+          <span className="text-txt-muted font-normal ml-1">
+            (shown as the blue headline in Google e.g. "SSC Teaching — Army
+            Practice Tests | PrepPK")
+          </span>
+        </label>
+        <input
+          type="text"
+          value={seoTitle}
+          onChange={(e) => setSeoTitle(e.target.value)}
+          placeholder="Leave blank to auto-generate from group name"
+          className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-txt-primary placeholder:text-txt-muted focus:outline-none focus:ring-2 focus:ring-brand/60 transition"
+        />
+        <SeoCharCounter length={seoTitle.length} soft={SEO_TITLE_SOFT_LIMIT} hard={SEO_TITLE_HARD_LIMIT} />
+      </div>
+
+      {/* SEO Description */}
+      <div>
+        <label className="block text-xs font-semibold text-txt-secondary mb-1.5">
+          SEO Description
+          <span className="text-txt-muted font-normal ml-1">
+            (grey text below the title in Google — aim for 140–160 characters)
+          </span>
+        </label>
+        <textarea
+          value={seoDescription}
+          onChange={(e) => setSeoDescription(e.target.value)}
+          rows={3}
+          placeholder="Leave blank to auto-generate"
+          className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-txt-primary placeholder:text-txt-muted focus:outline-none focus:ring-2 focus:ring-brand/60 transition resize-y"
+        />
+        <SeoCharCounter length={seoDescription.length} soft={SEO_DESC_SOFT_LIMIT} hard={SEO_DESC_HARD_LIMIT} />
       </div>
 
       {/* Blog content textarea */}
@@ -298,7 +354,7 @@ function GroupBlogTab({ categorySlug }) {
           disabled={saving || !selectedId}
           className="inline-flex items-center gap-2 bg-accent hover:bg-accent-dark disabled:opacity-60 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors duration-150"
         >
-          {saving ? "Saving…" : "Save Blog Content"}
+          {saving ? "Saving…" : "Save SEO & Content"}
         </button>
       </div>
     </div>

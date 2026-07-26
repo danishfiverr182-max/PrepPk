@@ -16,6 +16,8 @@
  * Admin routes:
  *   POST   /api/test-groups                            → createGroup
  *   DELETE /api/test-groups/:groupId                   → deleteGroup
+ *   PATCH  /api/test-groups/:groupId/blog               → save blogContent
+ *   PATCH  /api/test-groups/:groupId/seo                → save seoTitle/seoDescription
  *   POST   /api/test-groups/:groupId/tests             → createCustomTest (premium)
  *   GET    /api/custom-tests/test/:testId              → getTestById (admin)
  *   PATCH  /api/custom-tests/:testId/settings          → saveTestSettings
@@ -39,6 +41,7 @@
  *
  * Public routes (premium tests — gated):
  *   GET    /api/test-groups/:categorySlug              → getGroupsByCategory
+ *   GET    /api/test-groups/:categorySlug/:groupSlug   → getGroupBySlug (single chapter + its published tests)
  *   GET    /api/custom-tests/:categorySlug             → getTestsByCategory (with auth flags)
  *   GET    /api/custom-tests/hub/:testId               → getCustomTestHub  (userProtect)
  *   GET    /api/custom-tests/:testId/mcqs              → serve MCQs         (userProtect)
@@ -60,6 +63,7 @@ import { userProtect, optionalUserAuth } from "../middleware/userAuth.js";
 import {
   createGroup,
   getGroupsByCategory,
+  getGroupBySlug,
   deleteGroup,
 } from "../controllers/testGroupController.js";
 import {
@@ -131,6 +135,46 @@ router.patch("/test-groups/:groupId/blog", adminAuth, async (req, res) => {
     return res.json({ saved: true, groupId: group._id, blogContent: group.blogContent });
   } catch (err) {
     console.error("[saveGroupBlog] error:", err);
+    return res.status(500).json({ message: err.message || "Internal server error." });
+  }
+});
+
+/**
+ * PATCH /api/test-groups/:groupId/seo
+ * Admin only. Saves seoTitle/seoDescription for a specific group.
+ * Kept as a separate endpoint from PATCH /test-groups/:groupId/blog
+ * (rather than merging) so the existing admin frontend's blog-save call
+ * keeps working unchanged.
+ * Body: { seoTitle: string, seoDescription: string }
+ */
+router.patch("/test-groups/:groupId/seo", adminAuth, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { seoTitle, seoDescription } = req.body ?? {};
+
+    if (seoTitle !== undefined && typeof seoTitle !== "string") {
+      return res.status(400).json({ message: "seoTitle must be a string." });
+    }
+    if (seoDescription !== undefined && typeof seoDescription !== "string") {
+      return res.status(400).json({ message: "seoDescription must be a string." });
+    }
+
+    const update = {};
+    if (seoTitle !== undefined) update.seoTitle = seoTitle.trim();
+    if (seoDescription !== undefined) update.seoDescription = seoDescription.trim();
+
+    const group = await TestGroup.findByIdAndUpdate(groupId, update, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!group) {
+      return res.status(404).json({ message: "Test group not found." });
+    }
+
+    return res.json(group);
+  } catch (err) {
+    console.error("[saveGroupSeo] error:", err);
     return res.status(500).json({ message: err.message || "Internal server error." });
   }
 });
@@ -885,6 +929,15 @@ router.get("/custom-tests/category/:categorySlug", getAllTestsByCategory);
 // Get all premium tests in a group (requires auth to actually take them)
 router.get("/test-groups/:groupId/tests", getTestsByGroup);
 
+// Get a single group (chapter) by its own slug within a category — gives
+// chapters their own public URL (GET /category/:categorySlug/:groupSlug on
+// the client) so they can be indexed/ranked individually by Google.
+// IMPORTANT: must be registered AFTER "/test-groups/:groupId/tests" above —
+// both are 2-segment GET routes, and Express matches in registration order,
+// so putting this first would shadow the literal ".../tests" route (its
+// ":groupSlug" param would swallow the literal "tests" segment).
+router.get("/test-groups/:categorySlug/:groupSlug", getGroupBySlug);
+
 // Get all groups + published premium tests for a category page
 // Uses optionalUserAuth to attach user if logged in (for access flag)
 router.get("/custom-tests/:categorySlug", optionalUserAuth, getTestsByCategory);
@@ -1145,31 +1198,34 @@ async function checkCustomTestAccess(req, res, test) {
       code: "ACCESS_EXPIRED",
       message: "Your access has expired. Please contact the admin to renew your subscription.",
     });
-    return false;
+    return { allowed: false, group: null };
   }
 
   // Category access
-  const categorySlug = test.groupSlug
-    ? (await TestGroup.findById(test.groupId).lean())?.categorySlug
-    : null;
-
-  if (categorySlug) {
-    const group = await TestGroup.findById(test.groupId).lean();
+  // (Previously this fetched TestGroup.findById(test.groupId) twice —
+  // once to compute `categorySlug` just to gate the `if`, then again
+  // for the real check. Same document, same query, run back to back.
+  // Fetch it once, gated on test.groupId existing at all, and hand the
+  // fetched group back to the caller so routes that also need group
+  // name/slug — like /hub — don't fetch it a third time.)
+  let group = null;
+  if (test.groupId) {
+    group = await TestGroup.findById(test.groupId).lean();
     const catSlug = group?.categorySlug;
     if (catSlug && !user.hasAccessTo(catSlug)) {
       res.status(403).json({ message: "You do not have access to this category." });
-      return false;
+      return { allowed: false, group };
     }
     // Sub-group access check
     if (test.groupSlug && !user.hasGroupAccess(test.groupSlug)) {
       res.status(403).json({
         message: "You do not have access to this sub-group. Contact the admin to upgrade.",
       });
-      return false;
+      return { allowed: false, group };
     }
   }
 
-  return true;
+  return { allowed: true, group };
 }
 
 /**
@@ -1187,13 +1243,12 @@ router.get("/custom-tests/hub/:testId", userProtect, async (req, res) => {
       return res.status(404).json({ message: "Test not found." });
     }
 
-    const allowed = await checkCustomTestAccess(req, res, test);
+    const { allowed, group } = await checkCustomTestAccess(req, res, test);
     if (!allowed) return;
 
     let groupName = "";
     let categorySlug = "";
     if (test.groupId) {
-      const group = await TestGroup.findById(test.groupId).lean();
       groupName = group?.name || "";
       categorySlug = group?.categorySlug || "";
     }
@@ -1228,7 +1283,7 @@ router.get("/custom-tests/:testId/mcqs", userProtect, async (req, res) => {
       return res.status(404).json({ message: "Test not found." });
     }
 
-    const allowed = await checkCustomTestAccess(req, res, test);
+    const { allowed } = await checkCustomTestAccess(req, res, test);
     if (!allowed) return;
 
     const mcqDocs = await Mcq.find({ testId: test._id, testModel: "Test" })
@@ -1272,7 +1327,7 @@ router.post("/custom-tests/:testId/submit", userProtect, async (req, res) => {
       return res.status(404).json({ message: "Test not found." });
     }
 
-    const allowed = await checkCustomTestAccess(req, res, test);
+    const { allowed } = await checkCustomTestAccess(req, res, test);
     if (!allowed) return;
 
     const safeAnswers = answers && typeof answers === "object" ? answers : {};
@@ -1314,7 +1369,7 @@ router.get("/custom-tests/:testId/review", userProtect, async (req, res) => {
       return res.status(404).json({ message: "Test not found." });
     }
 
-    const allowed = await checkCustomTestAccess(req, res, test);
+    const { allowed } = await checkCustomTestAccess(req, res, test);
     if (!allowed) return;
 
     const mcqDocs = await Mcq.find({ testId: test._id, testModel: "Test" })

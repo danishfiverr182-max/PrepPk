@@ -27,12 +27,18 @@ import { useTheme } from "./context/ThemeContext";
 // User pages
 const HomePage                  = lazy(() => import("./pages/user/HomePage"));
 const CategoryPage              = lazy(() => import("./pages/user/CategoryPage"));
+const TestGroupPage             = lazy(() => import("./pages/user/TestGroupPage"));
 const FreeMockTestsPage         = lazy(() => import("./pages/user/FreeMockTestsPage"));
 const TestHubPage               = lazy(() => import("./pages/user/TestHubPage"));
 const TakeTestPage              = lazy(() => import("./pages/user/TakeTestPage"));
 const PremiumSectionResultPage  = lazy(() => import("./pages/user/SectionResultPage"));
 const PremiumMcqReviewPage      = lazy(() => import("./pages/user/McqReviewPage"));
 const NotFoundPage              = lazy(() => import("./pages/user/NotFoundPage"));
+
+// Public-facing blog (Prompt 5) — aliased to avoid a name clash with the
+// admin pages/admin/BlogListPage import below.
+const PublicBlogListPage = lazy(() => import("./pages/user/BlogListPage"));
+const PublicBlogPostPage = lazy(() => import("./pages/user/BlogPostPage"));
 
 // Part 8 Free Mock Test Engine
 const TestSectionPage       = lazy(() => import("./public/pages/TestSectionPage"));
@@ -52,6 +58,13 @@ const ChatAnalyticsPage  = lazy(() => import("./pages/admin/ChatAnalyticsPage"))
 
 // AI Chatbot key pool admin UI (Part 12   Prompt 9)
 const ApiKeyPoolPage = lazy(() => import("./pages/admin/ApiKeyPoolPage"));
+
+// Standalone admin-authored blog (Prompt 4)
+const BlogListPage = lazy(() => import("./pages/admin/BlogListPage"));
+const BlogEditorPage = lazy(() => import("./pages/admin/BlogEditorPage"));
+
+// SEO health / internal-link diagnostic (final SEO pass)
+const SeoHealthPage = lazy(() => import("./pages/admin/SeoHealthPage"));
 
 // Admin auth page (Part 2)
 const AdminAuth = lazy(() => import("./pages/admin/AdminAuth"));
@@ -163,7 +176,10 @@ const router = createBrowserRouter([
         children: [
           { path: "/",                                       element: <PublicErrorBoundary><HomePage /></PublicErrorBoundary> },
           { path: "/free-mock-tests",                        element: <PublicErrorBoundary><FreeMockTestsPage /></PublicErrorBoundary> },
+          { path: "/blog",                                   element: <PublicErrorBoundary><PublicBlogListPage /></PublicErrorBoundary> },
+          { path: "/blog/:slug",                             element: <PublicErrorBoundary><PublicBlogPostPage /></PublicErrorBoundary> },
           { path: "/category/:slug",                         element: <PublicErrorBoundary><CategoryPage /></PublicErrorBoundary> },
+          { path: "/category/:slug/:groupSlug",              element: <PublicErrorBoundary><TestGroupPage /></PublicErrorBoundary> },
           // Custom category test routes (Prompt 3) — static segment "custom" must come before dynamic :testId
           { path: "/test/custom/:testId",      element: <PublicErrorBoundary><CustomTestHubPage /></PublicErrorBoundary> },
           { path: "/test/custom/:testId/take", element: <CustomTakeTestPage /> },
@@ -234,6 +250,13 @@ const router = createBrowserRouter([
           { path: "/admin/users",     element: <AdminUsersPage /> },
           { path: "/admin/chat-analytics", element: <ChatAnalyticsPage /> },
           { path: "/admin/api-keys", element: <ApiKeyPoolPage /> },
+
+          // Standalone blog (Prompt 4)
+          { path: "/admin/blog", element: <AdminErrorBoundary><BlogListPage /></AdminErrorBoundary> },
+          { path: "/admin/blog/new", element: <AdminErrorBoundary><BlogEditorPage /></AdminErrorBoundary> },
+          { path: "/admin/blog/:postId", element: <AdminErrorBoundary><BlogEditorPage /></AdminErrorBoundary> },
+
+          { path: "/admin/seo-health", element: <AdminErrorBoundary><SeoHealthPage /></AdminErrorBoundary> },
 
           // Free Mock Tests
           { path: "/admin/free-mock-tests",                                              element: <FreeMockTestsAdminPage /> },

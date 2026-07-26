@@ -1,5 +1,5 @@
 /**
- * src/pages/user/CategoryPage.jsx  (Prompt 3   Expiry Enforcement & Access Control)
+ * src/pages/user/CategoryPage.jsx  (updated   consolidated onto SeoHead)
  *
  * Changes:
  *  - Removed serverHasAccess and serverUserExpired state   the server no longer
@@ -9,12 +9,31 @@
  *  - userExpired is now derived from AuthContext's sessionExpired flag instead
  *    of a per-category server response.
  *  - fetch logic no longer reads hasAccess / userExpired from API response.
- *  - All SEO, blog content, and skeleton/error UI is unchanged.
+ *  - Swapped raw <Helmet> for <SeoHead> (see components/SeoHead.jsx) so this
+ *    page gets Open Graph tags, Twitter card tags, and a canonical link like
+ *    every other public page   previously it only got <title> +
+ *    <meta name="description">, the one inconsistency in an otherwise
+ *    site-wide SEO mechanism.
+ *  - Added a lightweight CollectionPage + ItemList jsonLd schema (only on
+ *    the default-category branch, where `tests` is already in state) listing
+ *    the tests on the page   a clean fit since the data was already local,
+ *    no extra fetch needed. Skipped on the custom-category branch: that
+ *    branch hands off to CustomCategoryLayout before any test list is known
+ *    here, so building a meaningful ItemList would mean either duplicating
+ *    CustomCategoryLayout's own data-fetch or reaching into its internals   more
+ *    complexity than this page's existing render logic can cleanly absorb.
+ *  - Added a BreadcrumbList jsonLd schema (Home > {Category}), mirroring
+ *    TestGroupPage.jsx's own BreadcrumbList one level down (Home > Category
+ *    > Group). Unlike the ItemList above, this needs nothing from the
+ *    `tests` fetch   only the slug/displayName that's already available
+ *    the moment the page mounts   so it's emitted on BOTH branches
+ *    (default category and custom category), not gated on loading state.
  */
 
 import { useEffect, useState, useCallback } from "react";
+import { setCached } from "../../utils/pageDataCache";
 import { useParams, useOutletContext, Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
+import SeoHead from "../../components/SeoHead";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 import CategoryLockMessage from "../../public/components/CategoryLockMessage";
@@ -22,6 +41,7 @@ import CustomCategoryLayout from "../../components/user/CustomCategoryLayout";
 import AboutSection from "../../components/user/AboutSection";
 
 const SITE_NAME = "PrepPK";
+const BASE_URL  = import.meta.env.VITE_PUBLIC_URL || "https://www.prepkp.com";
 
 // ── Section badge ─────────────────────────────────────────────
 function SectionBadge({ label, status }) {
@@ -168,6 +188,47 @@ export default function CategoryPage() {
     seoDescription ||
     `Prepare for ${displayName} initial test with official-style MCQs. Free and premium mock tests covering Verbal, Non-Verbal, and Academic sections.`;
 
+  const canonicalUrl = `${BASE_URL}/category/${slug}`;
+
+  // ── BreadcrumbList jsonLd (Home > {Category}) ─────────────────
+  // Doesn't depend on the tests fetch   only slug/displayName, both
+  // available immediately   so it's always emitted, matching the
+  // pattern TestGroupPage.jsx uses one level down.
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type":    "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: BASE_URL },
+      { "@type": "ListItem", position: 2, name: displayName, item: canonicalUrl },
+    ],
+  };
+
+  // ── CollectionPage + ItemList jsonLd ──────────────────────────
+  // Only meaningful once tests have actually loaded; an empty ItemList
+  // isn't worth emitting, so this is omitted until then.
+  const collectionSchema =
+    !loading && tests.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type":    "CollectionPage",
+          "@id":      `${canonicalUrl}#collectionpage`,
+          url:        canonicalUrl,
+          name:       pageTitle,
+          description: pageDescription,
+          mainEntity: {
+            "@type": "ItemList",
+            itemListElement: tests.map((test, i) => ({
+              "@type":  "ListItem",
+              position: i + 1,
+              name:     test.title,
+              url:      `${BASE_URL}/test/${test._id}`,
+            })),
+          },
+        }
+      : null;
+
+  const jsonLd = [breadcrumbSchema, ...(collectionSchema ? [collectionSchema] : [])];
+
   const fetchTests = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -184,6 +245,11 @@ export default function CategoryPage() {
         setSeoDescription(data.category?.seoDescription || "");
         // Note: we no longer read hasAccess / userExpired from the API response.
         // Access is determined entirely by AuthContext (isLoggedIn + sessionExpired).
+
+        // Share the category name with anything else on this page that
+        // needs it (currently: useChatContext), so it doesn't independently
+        // re-fetch the same /tests/category/:slug endpoint.
+        setCached(`category:${slug}`, { categoryName: data.category?.name || null });
       })
       .catch((err) => {
         const msg =
@@ -243,10 +309,13 @@ export default function CategoryPage() {
     };
     return (
       <>
-        <Helmet>
-          <title>{pageTitle}</title>
-          <meta name="description" content={pageDescription} />
-        </Helmet>
+        <SeoHead
+          title={pageTitle}
+          description={pageDescription}
+          url={canonicalUrl}
+          ogType="website"
+          jsonLd={[breadcrumbSchema]}
+        />
         <CustomCategoryLayout
           category={categoryObj}
           user={premiumUser}
@@ -260,10 +329,13 @@ export default function CategoryPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 md:px-8 py-10 dark:bg-dark-bg">
       {/* SEO meta tags */}
-      <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
-      </Helmet>
+      <SeoHead
+        title={pageTitle}
+        description={pageDescription}
+        url={canonicalUrl}
+        ogType="website"
+        jsonLd={jsonLd}
+      />
 
       {/* Page header */}
       <div className="mb-8">

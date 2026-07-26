@@ -9,6 +9,7 @@ import { loginLimiter, codeLimiter } from "../middleware/rateLimiter.js";
 import Admin from "../models/Admin.js";
 import { sendVerificationEmail } from "../utils/email.js";
 import { createAndSendToken } from "../utils/createAndSendToken.js";
+import { isAllowedAdminEmail, maskEmail } from "../utils/adminAllowlist.js";
 
 const router = Router();
 
@@ -62,6 +63,19 @@ router.post(
 
     const { fullName, email, password } = req.body;
     const emailLower = email.toLowerCase().trim();
+
+    // ── Allowlist gate ──────────────────────────────────────────────────
+    // This is the actual security boundary, not the secret URL. Reject
+    // BEFORE checking Mongo or sending any email, and use a message that
+    // doesn't confirm/deny whether an allowlist even exists — same generic
+    // wording either way, so an attacker probing this endpoint learns
+    // nothing about which emails (if any) would have worked.
+    if (!isAllowedAdminEmail(emailLower)) {
+      console.warn(`[register] Blocked registration attempt for non-allowlisted email: ${maskEmail(emailLower)}`);
+      return res.status(403).json({
+        message: "Registration is not available for this account.",
+      });
+    }
 
     try {
       // 1 Check for an already-verified admin
@@ -222,6 +236,15 @@ router.post("/login", loginLimiter, async (req, res) => {
   }
 
   const emailLower = email.toLowerCase().trim();
+
+  // ── Allowlist gate ──────────────────────────────────────────────────
+  // Defense-in-depth: even if an Admin document already exists for this
+  // email (e.g. it was created before this allowlist existed, or was later
+  // revoked), login is refused unless the email is currently allow-listed.
+  if (!isAllowedAdminEmail(emailLower)) {
+    console.warn(`[login] Blocked login attempt for non-allowlisted email: ${maskEmail(emailLower)}`);
+    return res.status(401).json({ message: "Invalid email or password." });
+  }
 
   try {
     const admin = await Admin.findOne({ email: emailLower });

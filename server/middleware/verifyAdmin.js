@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
+import { isAllowedAdminEmail } from "../utils/adminAllowlist.js";
 
 // ── verifyAdmin ──────────────────────────────────────────────
 // Protects every admin API route mounted under the secret path
@@ -44,6 +45,16 @@ export async function verifyAdmin(req, res, next) {
 
     if (!admin) {
       // Admin was deleted after the token was issued
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    // ── Allowlist gate (checked on EVERY request, not just login) ───────
+    // A JWT is valid for up to 7 days. Without this check, revoking an
+    // admin's access (by removing them from ADMIN_ALLOWED_EMAILS) would
+    // only take effect once their existing cookie naturally expired.
+    // Checking here means revocation is effective on their very next
+    // request, regardless of how much time is left on the token.
+    if (!isAllowedAdminEmail(admin.email)) {
       return res.status(401).json({ message: "Not authenticated" });
     }
 
