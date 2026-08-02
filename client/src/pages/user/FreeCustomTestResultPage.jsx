@@ -104,6 +104,25 @@ export default function FreeCustomTestResultPage() {
   const [showReview, setShowReview] = useState(false);
   const [reviewMcqs, setReviewMcqs] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [nextTest, setNextTest] = useState(null); // { nextTestId, nextTestNumber } | null
+
+  const testIdForNextLookup = effective?.testId;
+
+  useEffect(() => {
+    if (!testIdForNextLookup) return;
+    let cancelled = false;
+    api
+      .get(`/free-custom-tests/${testIdForNextLookup}/next`)
+      .then(({ data }) => {
+        if (!cancelled) setNextTest(data);
+      })
+      .catch(() => {
+        if (!cancelled) setNextTest(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [testIdForNextLookup]);
 
   if (!effective?.result) {
     return (
@@ -128,6 +147,11 @@ export default function FreeCustomTestResultPage() {
 
   function handleRetake() {
     navigate(`/test/free-custom/${testId}`, { replace: true });
+  }
+
+  function handleNextTest() {
+    if (!nextTest?.nextTestId) return;
+    navigate(`/test/free-custom/${nextTest.nextTestId}`);
   }
 
   function handleToggleReview() {
@@ -185,6 +209,16 @@ export default function FreeCustomTestResultPage() {
                 ? "Congratulations! You scored 80% or above."
                 : "Keep practising! You need 80% or above to pass."}
             </p>
+
+            {nextTest?.nextTestId && (
+              <button
+                onClick={handleNextTest}
+                className="w-full inline-flex items-center justify-center gap-2 text-sm font-bold bg-success hover:bg-green-700 text-white px-4 py-3 rounded-lg transition mb-2.5"
+              >
+                Next: Test {nextTest.nextTestNumber}
+                <span aria-hidden="true">→</span>
+              </button>
+            )}
 
             {/* ── Premium upsell (visitors only) ───────────────────────── */}
             {!isLoggedIn && openPremiumPopup && (

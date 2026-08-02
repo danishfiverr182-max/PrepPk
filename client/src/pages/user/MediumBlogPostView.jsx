@@ -240,12 +240,38 @@ function RelatedCard({ post }) {
   );
 }
 
+function SkeletonRelatedCard() {
+  return (
+    <div className="rounded-2xl overflow-hidden border border-border dark:border-dark-border animate-pulse">
+      <div className="aspect-[16/10] bg-bg dark:bg-dark-surface2" />
+      <div className="p-4 space-y-2">
+        <div className="h-3 bg-border dark:bg-dark-border rounded w-5/6" />
+        <div className="h-3 bg-border dark:bg-dark-border rounded w-2/3" />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonNavCard() {
+  return (
+    <div className="rounded-2xl border border-border dark:border-dark-border p-5 animate-pulse space-y-2">
+      <div className="h-3 bg-border dark:bg-dark-border rounded w-16" />
+      <div className="h-4 bg-border dark:bg-dark-border rounded w-4/5" />
+    </div>
+  );
+}
+
 export default function MediumBlogPostView({
   post,
   relatedPosts = [],
   relatedCategory = null,
   prevPost = null,
   nextPost = null,
+  // True while BlogPostPage's related/prev-next fetch is still in flight.
+  // Rendering skeletons instead of nothing during that window reserves
+  // the same amount of space up front, so these sections never suddenly
+  // pop in and shift the footer down after the reader has scrolled.
+  relatedLoading = false,
   shareUrl = "",
 }) {
   const articleRef = useRef(null);
@@ -393,7 +419,15 @@ export default function MediumBlogPostView({
         </div>
 
         {/* ── Prev / Next navigation ──────────────────────────── */}
-        {(prevPost || nextPost) && (
+        {relatedLoading ? (
+          <nav
+            aria-label="Post navigation"
+            className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4"
+          >
+            <SkeletonNavCard />
+            <SkeletonNavCard />
+          </nav>
+        ) : (prevPost || nextPost) && (
           <nav
             aria-label="Post navigation"
             className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4"
@@ -425,15 +459,17 @@ export default function MediumBlogPostView({
         )}
 
         {/* ── Related posts ────────────────────────────────────── */}
-        {relatedPosts.length > 0 && (
+        {(relatedLoading || relatedPosts.length > 0) && (
           <div className="mt-14 pt-8 border-t border-border dark:border-dark-border">
             <h2 className="text-lg font-bold font-heading text-txt-primary dark:text-slate-100 mb-5">
               More to read
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {relatedPosts.map((rp) => (
-                <RelatedCard key={rp.slug} post={rp} />
-              ))}
+              {relatedLoading
+                ? [0, 1, 2].map((i) => <SkeletonRelatedCard key={i} />)
+                : relatedPosts.map((rp) => (
+                    <RelatedCard key={rp.slug} post={rp} />
+                  ))}
             </div>
           </div>
         )}

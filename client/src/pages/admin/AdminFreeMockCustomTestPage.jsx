@@ -32,6 +32,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/axios";
 import toast from "react-hot-toast";
 import TimePicker from "../../components/admin/TimePicker";
+import MarksSettingsEditor from "../../components/admin/MarksSettingsEditor";
 
 // ─────────────────────────────────────────────────────────────
 //  Shared helpers
@@ -70,7 +71,16 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
   const [timeError, setTimeError] = useState("");
   const [totalMcqs, setTotalMcqs] = useState("");
   const [mcqsError, setMcqsError] = useState("");
+  const [totalMarks, setTotalMarks] = useState("100");
+  const [negMarkEnabled, setNegMarkEnabled] = useState(false);
+  const [negMarkValue, setNegMarkValue] = useState("0");
   const [saving, setSaving] = useState(false);
+
+  function handleMarksChange(patch) {
+    if (patch.totalMarks !== undefined) setTotalMarks(patch.totalMarks);
+    if (patch.negMarkEnabled !== undefined) setNegMarkEnabled(patch.negMarkEnabled);
+    if (patch.negMarkValue !== undefined) setNegMarkValue(patch.negMarkValue);
+  }
 
   async function handleSave() {
     let valid = true;
@@ -98,12 +108,19 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
       const { data } = await api.patch(`/free-mock-tests/custom/${testId}/settings`, {
         timeLimitSeconds: totalSecs,
         totalMcqs: mcqNum,
+        totalMarks: parseFloat(totalMarks) || 100,
+        negativeMarking: {
+          enabled: negMarkEnabled,
+          marksPerWrong: parseFloat(negMarkValue) || 0,
+        },
       });
-      // data: { saved, timeLimitSeconds, totalMcqs }  (free tests have no status lock)
+      // data: { saved, timeLimitSeconds, totalMcqs, totalMarks, negativeMarking }  (free tests have no status lock)
       toast.success("Settings saved.");
       onSaved({
         timeLimitSeconds: data.timeLimitSeconds,
         totalMcqs: data.totalMcqs,
+        totalMarks: data.totalMarks,
+        negativeMarking: data.negativeMarking,
         status: "mcqs_pending", // synthesize phase transition (free tests have no settings lock)
       });
     } catch (err) {
@@ -156,6 +173,19 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
           {mcqsError && (
             <p className="text-xs text-danger mt-1">{mcqsError}</p>
           )}
+        </div>
+
+        {/* Marks & Negative Marking */}
+        <div>
+          <label className="text-xs font-medium text-txt-secondary block mb-2">
+            Marks & Negative Marking
+          </label>
+          <MarksSettingsEditor
+            totalMarks={totalMarks}
+            negMarkEnabled={negMarkEnabled}
+            negMarkValue={negMarkValue}
+            onChange={handleMarksChange}
+          />
         </div>
 
         {/* Save button */}
@@ -479,8 +509,8 @@ export default function AdminFreeMockCustomTestPage() {
 
   // Called by SettingsPhase after a successful PATCH
   // Merges the server response fields into local test state → triggers phase change
-  function handleSettingsSaved({ timeLimitSeconds, totalMcqs, status }) {
-    setTest((prev) => ({ ...prev, timeLimitSeconds, totalMcqs, status }));
+  function handleSettingsSaved({ timeLimitSeconds, totalMcqs, totalMarks, negativeMarking, status }) {
+    setTest((prev) => ({ ...prev, timeLimitSeconds, totalMcqs, totalMarks, negativeMarking, status }));
   }
 
   // ── Loading / error states ────────────────────────────────

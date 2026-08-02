@@ -60,6 +60,11 @@ export default function useSectionPage({
   // ── Subject % breakdown state (admin-entered, informational) ──
   const [subjectBreakdown, setSubjectBreakdown] = useState([]);
 
+  // ── Marks state (Feature: editable marks + negative marking) ──
+  const [totalMarks, setTotalMarks]   = useState("100");
+  const [negMarkEnabled, setNegMarkEnabled] = useState(false);
+  const [negMarkValue, setNegMarkValue]     = useState("0");
+
   // ── MCQ list state ──────────────────────────────────────
   const [mcqs, setMcqs] = useState([]);
 
@@ -80,7 +85,7 @@ export default function useSectionPage({
   const isMounted   = useRef(true);
   const saveStatusRef = useRef("idle");
   // Hold latest values for the retry callback without re-creating it
-  const latestPayload = useRef({ time, totalMCQs, mcqs, subjectBreakdown });
+  const latestPayload = useRef({ time, totalMCQs, mcqs, subjectBreakdown, totalMarks, negMarkEnabled, negMarkValue });
 
   // ── Per-MCQ debounce timers ───────────────────────────────
   // One independent debounce timer per MCQ index, so editing MCQ #5 and
@@ -94,8 +99,8 @@ export default function useSectionPage({
   const sectionExistsRef = useRef(false);
 
   useEffect(() => {
-    latestPayload.current = { time, totalMCQs, mcqs, subjectBreakdown };
-  }, [time, totalMCQs, mcqs, subjectBreakdown]);
+    latestPayload.current = { time, totalMCQs, mcqs, subjectBreakdown, totalMarks, negMarkEnabled, negMarkValue };
+  }, [time, totalMCQs, mcqs, subjectBreakdown, totalMarks, negMarkEnabled, negMarkValue]);
 
   // ── Derived ─────────────────────────────────────────────
   const totalSeconds = toSeconds(time);
@@ -135,11 +140,17 @@ export default function useSectionPage({
         if (!isMounted.current) return;
 
         if (data.section) {
-          const { timeLimit, totalMCQs: savedCount, mcqs: savedMcqs, subjectBreakdown: savedBreakdown } = data.section;
+          const {
+            timeLimit, totalMCQs: savedCount, mcqs: savedMcqs, subjectBreakdown: savedBreakdown,
+            totalMarks: savedTotalMarks, negativeMarking: savedNegMarking,
+          } = data.section;
           setTime(fromSeconds(timeLimit));
           setTotalMCQs(String(savedCount));
           setMcqs((savedMcqs || []).map(createEmptyMcq));
           setSubjectBreakdown(savedBreakdown || []);
+          setTotalMarks(String(typeof savedTotalMarks === "number" ? savedTotalMarks : 100));
+          setNegMarkEnabled(savedNegMarking?.enabled === true);
+          setNegMarkValue(String(savedNegMarking?.marksPerWrong ?? 0));
           sectionExistsRef.current = true;
         }
         // Loaded from server not dirty
@@ -176,6 +187,11 @@ export default function useSectionPage({
           totalMCQs: count,
           subjectBreakdown: latestPayload.current.subjectBreakdown,
           mcqs:      list,
+          totalMarks: parseFloat(latestPayload.current.totalMarks) || 100,
+          negativeMarking: {
+            enabled: latestPayload.current.negMarkEnabled,
+            marksPerWrong: parseFloat(latestPayload.current.negMarkValue) || 0,
+          },
         });
         if (isMounted.current) {
           setSaveStatus("saved");
@@ -336,6 +352,17 @@ export default function useSectionPage({
     triggerAutoSave();
   }
 
+  // Handles edits to total marks / negative marking toggle / value.
+  // Reuses the same debounced /draft save as time/count/subjectBreakdown.
+  function handleMarksChange(patch) {
+    if (patch.totalMarks !== undefined) setTotalMarks(patch.totalMarks);
+    if (patch.negMarkEnabled !== undefined) setNegMarkEnabled(patch.negMarkEnabled);
+    if (patch.negMarkValue !== undefined) setNegMarkValue(patch.negMarkValue);
+    setSaveStatus("idle");
+    setIsDirty(true);
+    triggerAutoSave();
+  }
+
   function handleMcqsChange(updated) {
     setMcqs(updated);
     setSaveStatus("idle");
@@ -483,6 +510,7 @@ export default function useSectionPage({
     totalMCQs, mcqCountNum,
     pendingCount, showReduceDialog,
     subjectBreakdown,
+    totalMarks, negMarkEnabled, negMarkValue,
     mcqs,
     saveStatus, isFinalSaving, finalSaveError,
     canSave,
@@ -499,6 +527,7 @@ export default function useSectionPage({
     handleReduceConfirm,
     handleReduceCancel,
     handleSubjectBreakdownChange,
+    handleMarksChange,
     handleMcqsChange,
     handleSingleMcqEdit,
     handleAddMcqBatch,

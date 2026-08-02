@@ -273,18 +273,32 @@ export async function getTestById(req, res) {
 }
 
 // ── PATCH /api/custom-tests/:testId/settings ─────────────────
-// Admin only. Saves timeLimitSeconds and totalMcqs to the test.
+// Admin only. Saves timeLimitSeconds to the test. totalMcqs is no
+// longer admin-entered up front — it's derived from however many MCQs
+// end up imported (via JSON) or added. totalMcqs may still optionally
+// be included in the request body (the JSON-import flow uses this to
+// keep the admin UI's progress target in sync as MCQs are imported),
+// but it is never required and nothing validates against it anymore —
+// the real source of truth is the actual Mcq count at publish time.
 export async function saveTestSettings(req, res) {
   try {
     const { testId } = req.params;
-    const { timeLimitSeconds, totalMcqs, subjectBreakdown } = req.body ?? {};
+    const { timeLimitSeconds, totalMcqs, subjectBreakdown, totalMarks, negativeMarking } = req.body ?? {};
 
-    if (!timeLimitSeconds || !totalMcqs) {
-      return res.status(400).json({ message: "timeLimitSeconds and totalMcqs are required." });
+    if (!timeLimitSeconds) {
+      return res.status(400).json({ message: "timeLimitSeconds is required." });
     }
 
-    if (Number(totalMcqs) < 1) {
-      return res.status(400).json({ message: "totalMcqs must be at least 1." });
+    if (totalMarks !== undefined && totalMarks !== null && Number(totalMarks) < 1) {
+      return res.status(400).json({ message: "totalMarks must be at least 1." });
+    }
+
+    if (
+      negativeMarking &&
+      negativeMarking.enabled &&
+      (typeof negativeMarking.marksPerWrong !== "number" || negativeMarking.marksPerWrong < 0)
+    ) {
+      return res.status(400).json({ message: "marksPerWrong must be 0 or greater." });
     }
 
     const test = await Test.findById(testId);
@@ -297,9 +311,27 @@ export async function saveTestSettings(req, res) {
     }
 
     test.timeLimitSeconds = Number(timeLimitSeconds);
-    test.totalMcqs = Number(totalMcqs);
+    if (totalMcqs !== undefined && totalMcqs !== null && Number(totalMcqs) >= 1) {
+      test.totalMcqs = Number(totalMcqs);
+    }
     test.subjectBreakdown = sanitiseSubjectBreakdown(subjectBreakdown);
-    test.status = "mcqs_pending"; // unlock MCQ adding
+    test.totalMarks = totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+      ? Number(totalMarks)
+      : 100;
+    test.negativeMarking = {
+      enabled: negativeMarking?.enabled === true,
+      marksPerWrong: negativeMarking?.enabled === true
+        ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+        : 0,
+    };
+    // Only advance the phase on the FIRST save (from settings_pending).
+    // If the admin is editing settings later — e.g. adding a subject
+    // breakdown to a test that already has MCQs or is already published —
+    // don't downgrade status and accidentally unpublish a live test or
+    // reset its phase back to "adding MCQs".
+    if (test.status === "settings_pending") {
+      test.status = "mcqs_pending"; // unlock MCQ adding
+    }
     await test.save();
 
     return res.json({
@@ -307,6 +339,8 @@ export async function saveTestSettings(req, res) {
       timeLimitSeconds: test.timeLimitSeconds,
       totalMcqs: test.totalMcqs,
       subjectBreakdown: test.subjectBreakdown,
+      totalMarks: test.totalMarks,
+      negativeMarking: test.negativeMarking,
       status: test.status,
     });
   } catch (err) {
@@ -541,14 +575,16 @@ export async function publishTest(req, res) {
       return res.status(400).json({ message: "Only standalone custom tests can be published via this endpoint." });
     }
 
-    const targetCount = test.totalMcqs;
-    if (!targetCount) {
-      return res.status(400).json({ message: "Test settings (time limit and MCQ count) must be saved before publishing." });
-    }
-
     // Count actual Mcq documents rather than trusting the denormalized
-    // mcqCount alone — this is the source of truth.
+    // mcqCount alone — this is the source of truth. The test's
+    // totalMcqs count is no longer set by the admin up front; it's
+    // derived from whatever was actually imported/added (usually via
+    // JSON import), so there's nothing to "match" here.
     const actualCount = await Mcq.countDocuments({ testId: test._id, testModel: "Test" });
+
+    if (actualCount === 0) {
+      return res.status(400).json({ message: "Add at least one MCQ (via JSON import) before publishing." });
+    }
 
     // Sanity-check the denormalized counter against the real count. If
     // these ever disagree it means mcqCount drifted (e.g. a failed
@@ -560,11 +596,8 @@ export async function publishTest(req, res) {
       });
     }
 
-    if (actualCount !== targetCount) {
-      return res.status(400).json({
-        message: `Cannot publish. Expected ${targetCount} MCQs but only ${actualCount} are saved.`,
-      });
-    }
+    // Keep totalMcqs in sync with reality rather than an admin-entered target.
+    test.totalMcqs = actualCount;
 
     // Final integrity check on all MCQs, now sourced from the Mcq collection.
     const mcqDocs = await Mcq.find({ testId: test._id, testModel: "Test" })

@@ -153,6 +153,13 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
   const debounceRef = useRef(null);
 
   // ── Fetch premium groups ──────────────────────────────────
+  // Depends on `user` (in addition to catSlug) because the server computes
+  // each test's `locked` flag per-request from the caller's auth state
+  // (optionalUserAuth). Without `user` in the deps, logging in/out while
+  // already sitting on this page left the previously-fetched `locked`
+  // values stale until a full page reload remounted the component — this
+  // is what caused tests to keep showing "Unlock" right after login (and
+  // vice versa right after logout) until the user manually refreshed.
   useEffect(() => {
     if (!catSlug) return;
     setGroupsLoading(true);
@@ -161,7 +168,7 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
       .then(({ data }) => setGroups(data.groups || []))
       .catch(() => setGroups([]))
       .finally(() => setGroupsLoading(false));
-  }, [catSlug]);
+  }, [catSlug, user]);
 
   // ── Fetch free groups ─────────────────────────────────────
   useEffect(() => {

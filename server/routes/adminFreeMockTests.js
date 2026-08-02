@@ -214,7 +214,7 @@ router.get("/free-mock-tests/categories/:slug/in-progress", async (req, res, nex
  */
 router.post("/free-mock-tests/sections/verbal/draft", async (req, res, next) => {
   try {
-    const { testId, timeLimit, totalMCQs, mcqs, subjectBreakdown } = req.body;
+    const { testId, timeLimit, totalMCQs, mcqs, subjectBreakdown, totalMarks, negativeMarking } = req.body;
 
     if (!testId) return res.status(400).json({ message: "testId is required." });
 
@@ -233,6 +233,15 @@ router.post("/free-mock-tests/sections/verbal/draft", async (req, res, next) => 
           timeLimit: Number(timeLimit) || 0,
           totalMCQs: Number(totalMCQs) || 0,
           subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+          totalMarks: totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+            ? Number(totalMarks)
+            : 100,
+          negativeMarking: {
+            enabled: negativeMarking?.enabled === true,
+            marksPerWrong: negativeMarking?.enabled === true
+              ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+              : 0,
+          },
           mcqs:      mcqs || [],
           isShared:  false,
           isDraft:   true,
@@ -299,11 +308,16 @@ router.post("/free-mock-tests/sections/verbal/save/:testId", async (req, res, ne
       return res.status(400).json({ message: "Verbal section draft not found." });
     }
 
-    if (section.mcqs.length !== section.totalMCQs) {
+    // totalMCQs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually ended up here (normally via JSON
+    // import). Just require at least one, then sync totalMCQs to match
+    // reality rather than validating against a separate target.
+    if (section.mcqs.length === 0) {
       return res.status(400).json({
-        message: `MCQ count mismatch: expected ${section.totalMCQs} but got ${section.mcqs.length}.`,
+        message: "Import a JSON file with at least one MCQ before saving this section.",
       });
     }
+    section.totalMCQs = section.mcqs.length;
 
     for (let i = 0; i < section.mcqs.length; i++) {
       const mcq = section.mcqs[i];
@@ -348,7 +362,7 @@ router.post("/free-mock-tests/sections/verbal/save/:testId", async (req, res, ne
  */
 router.post("/free-mock-tests/sections/nonverbal/draft", async (req, res, next) => {
   try {
-    const { testId, timeLimit, totalMCQs, mcqs, subjectBreakdown } = req.body;
+    const { testId, timeLimit, totalMCQs, mcqs, subjectBreakdown, totalMarks, negativeMarking } = req.body;
 
     if (!testId) return res.status(400).json({ message: "testId is required." });
 
@@ -367,6 +381,15 @@ router.post("/free-mock-tests/sections/nonverbal/draft", async (req, res, next) 
           timeLimit: Number(timeLimit) || 0,
           totalMCQs: Number(totalMCQs) || 0,
           subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+          totalMarks: totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+            ? Number(totalMarks)
+            : 100,
+          negativeMarking: {
+            enabled: negativeMarking?.enabled === true,
+            marksPerWrong: negativeMarking?.enabled === true
+              ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+              : 0,
+          },
           mcqs:      mcqs || [],
           isShared:  false,
           isDraft:   true,
@@ -433,11 +456,16 @@ router.post("/free-mock-tests/sections/nonverbal/save/:testId", async (req, res,
       return res.status(400).json({ message: "Non-verbal section draft not found." });
     }
 
-    if (section.mcqs.length !== section.totalMCQs) {
+    // totalMCQs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually ended up here (normally via JSON
+    // import). Just require at least one, then sync totalMCQs to match
+    // reality rather than validating against a separate target.
+    if (section.mcqs.length === 0) {
       return res.status(400).json({
-        message: `MCQ count mismatch: expected ${section.totalMCQs} but got ${section.mcqs.length}.`,
+        message: "Import a JSON file with at least one MCQ before saving this section.",
       });
     }
+    section.totalMCQs = section.mcqs.length;
 
     for (let i = 0; i < section.mcqs.length; i++) {
       const mcq = section.mcqs[i];
@@ -489,7 +517,7 @@ router.post("/free-mock-tests/sections/nonverbal/save/:testId", async (req, res,
  */
 router.post("/free-mock-tests/sections/academic/draft", async (req, res, next) => {
   try {
-    const { testId, timeLimit, totalMCQs, mcqs, subjectBreakdown } = req.body;
+    const { testId, timeLimit, totalMCQs, mcqs, subjectBreakdown, totalMarks, negativeMarking } = req.body;
 
     if (!testId) return res.status(400).json({ message: "testId is required." });
 
@@ -508,6 +536,15 @@ router.post("/free-mock-tests/sections/academic/draft", async (req, res, next) =
           timeLimit: Number(timeLimit) || 0,
           totalMCQs: Number(totalMCQs) || 0,
           subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+          totalMarks: totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+            ? Number(totalMarks)
+            : 100,
+          negativeMarking: {
+            enabled: negativeMarking?.enabled === true,
+            marksPerWrong: negativeMarking?.enabled === true
+              ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+              : 0,
+          },
           mcqs:      mcqs || [],
           isShared:  false,           // enforced client value ignored
           isDraft:   true,
@@ -597,11 +634,16 @@ router.post("/free-mock-tests/sections/academic/save/:testId", async (req, res, 
     }
 
     // ── Validation: MCQ count must match totalMCQs ───────────
-    if (section.mcqs.length !== section.totalMCQs) {
+    // totalMCQs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually ended up here (normally via JSON
+    // import). Just require at least one, then sync totalMCQs to match
+    // reality rather than validating against a separate target.
+    if (section.mcqs.length === 0) {
       return res.status(400).json({
-        message: `MCQ count mismatch: expected ${section.totalMCQs} but got ${section.mcqs.length}.`,
+        message: "Import a JSON file with at least one MCQ before saving this section.",
       });
     }
+    section.totalMCQs = section.mcqs.length;
 
     // ── Validation: every MCQ must have question + correctAnswer ─
     for (let i = 0; i < section.mcqs.length; i++) {

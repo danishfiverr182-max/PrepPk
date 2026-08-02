@@ -92,6 +92,22 @@
                   linear-gradient(90deg, rgba(108, 99, 255, 0.07) 1px, transparent 1px);
 }
 
+/* ── Prevent overscroll "rubber-band" gap ─────────────────────
+   On touch devices (and trackpads on Safari/Chrome), scrolling past
+   the top or bottom of the page triggers an elastic bounce that
+   briefly reveals the raw <html>/<body> background above the sticky
+   navbar and below the footer. Because that background didn't match
+   the app's actual layout gradient, this showed up as a visible
+   "extra gap" that pushed the navbar/footer down while scrolling —
+   most noticeable on long pages like blog posts. Disabling bounce
+   removes the reveal entirely; matching the background is a safety
+   net for browsers that don't fully honor overscroll-behavior. ── */
+html,
+body {
+  overscroll-behavior-y: none;
+  background: var(--bg-layout);
+}
+
 /* ── Smooth theme transition ───────────────────────────────── */
 * {
   transition: var(--theme-transition);
@@ -601,4 +617,19 @@
   transform: translateY(-6px);
   box-shadow: 0 20px 60px var(--card-glow, rgba(0, 0, 0, 0.15)), 0 8px 24px rgba(0, 0, 0, 0.3);
   border-color: var(--card-glow, transparent);
+}
+/* ── MCQ copy protection ──────────────────────────────────────
+   Applied to test-taking and review question/option containers so
+   users can't select and copy a question into a search engine to
+   look up the answer. Paired with onCopy/onCut/onContextMenu/
+   onDragStart handlers (see utils/noCopyProps.js) which block the
+   copy action itself   CSS alone only stops selection, not a
+   keyboard-triggered copy of already-selected text, so both layers
+   are needed together. */
+.mcq-no-copy {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none; /* iOS Safari "copy" bubble on long-press */
 }

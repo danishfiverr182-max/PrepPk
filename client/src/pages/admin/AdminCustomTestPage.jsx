@@ -40,6 +40,7 @@ import toast from "react-hot-toast";
 import TimePicker from "../../components/admin/TimePicker";
 import JsonMcqImportButton from "../../components/admin/JsonMcqImportButton";
 import SubjectBreakdownEditor from "../../components/admin/SubjectBreakdownEditor";
+import MarksSettingsEditor from "../../components/admin/MarksSettingsEditor";
 
 // ─────────────────────────────────────────────────────────────
 //  Shared helpers
@@ -73,13 +74,29 @@ function hmsToSeconds({ hours, minutes, seconds }) {
 //  Phase 1 — Settings
 // ─────────────────────────────────────────────────────────────
 
-function SettingsPhase({ testId, initialSeconds, onSaved }) {
+function SettingsPhase({
+  testId,
+  initialSeconds,
+  initialSubjectBreakdown = [],
+  initialTotalMarks = "100",
+  initialNegMarkEnabled = false,
+  initialNegMarkValue = "0",
+  isEdit = false,
+  onSaved,
+}) {
   const [timeHMS, setTimeHMS] = useState(secondsToHMS(initialSeconds || 1800));
   const [timeError, setTimeError] = useState("");
-  const [totalMcqs, setTotalMcqs] = useState("");
-  const [mcqsError, setMcqsError] = useState("");
-  const [subjectBreakdown, setSubjectBreakdown] = useState([]);
+  const [subjectBreakdown, setSubjectBreakdown] = useState(initialSubjectBreakdown);
+  const [totalMarks, setTotalMarks] = useState(String(initialTotalMarks ?? "100"));
+  const [negMarkEnabled, setNegMarkEnabled] = useState(initialNegMarkEnabled);
+  const [negMarkValue, setNegMarkValue] = useState(String(initialNegMarkValue ?? "0"));
   const [saving, setSaving] = useState(false);
+
+  function handleMarksChange(patch) {
+    if (patch.totalMarks !== undefined) setTotalMarks(patch.totalMarks);
+    if (patch.negMarkEnabled !== undefined) setNegMarkEnabled(patch.negMarkEnabled);
+    if (patch.negMarkValue !== undefined) setNegMarkValue(patch.negMarkValue);
+  }
 
   async function handleSave() {
     let valid = true;
@@ -92,29 +109,27 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
       setTimeError("");
     }
 
-    const mcqNum = parseInt(totalMcqs, 10);
-    if (!totalMcqs || isNaN(mcqNum) || mcqNum < 1) {
-      setMcqsError("Enter a valid MCQ count (minimum 1).");
-      valid = false;
-    } else {
-      setMcqsError("");
-    }
-
     if (!valid) return;
 
     setSaving(true);
     try {
       const { data } = await api.patch(`/custom-tests/${testId}/settings`, {
         timeLimitSeconds: totalSecs,
-        totalMcqs: mcqNum,
         subjectBreakdown,
+        totalMarks: parseFloat(totalMarks) || 100,
+        negativeMarking: {
+          enabled: negMarkEnabled,
+          marksPerWrong: parseFloat(negMarkValue) || 0,
+        },
       });
-      // data: { saved, timeLimitSeconds, totalMcqs, subjectBreakdown, status: "mcqs_pending" }
+      // data: { saved, timeLimitSeconds, totalMcqs, subjectBreakdown, totalMarks, negativeMarking, status: "mcqs_pending" }
       toast.success("Settings saved.");
       onSaved({
         timeLimitSeconds: data.timeLimitSeconds,
         totalMcqs: data.totalMcqs,
         subjectBreakdown: data.subjectBreakdown,
+        totalMarks: data.totalMarks,
+        negativeMarking: data.negativeMarking,
         status: data.status, // "mcqs_pending" → triggers phase transition
       });
     } catch (err) {
@@ -127,7 +142,7 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
   return (
     <section className="bg-surface border border-border rounded-xl p-6 mb-6 shadow-sm">
       <h2 className="text-sm font-semibold text-txt-secondary uppercase tracking-widest mb-5">
-        Phase 1 Test Settings
+        {isEdit ? "Edit Test Settings" : "Phase 1 Test Settings"}
       </h2>
 
       <div className="flex flex-col gap-6">
@@ -148,27 +163,6 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
           </p>
         </div>
 
-        {/* Total MCQs */}
-        <div>
-          <label className="text-txt-secondary font-medium text-xs block mb-1.5">
-            Total MCQs <span className="text-danger">*</span>
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={totalMcqs}
-            onChange={(e) => setTotalMcqs(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            placeholder="e.g. 20"
-            className={`w-32 bg-surface border text-txt-primary placeholder:text-txt-muted text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand transition ${
-              mcqsError ? "border-danger" : "border-border"
-            }`}
-          />
-          {mcqsError && (
-            <p className="text-xs text-danger mt-1">{mcqsError}</p>
-          )}
-        </div>
-
         {/* Subject % Breakdown */}
         <div>
           <label className="text-txt-secondary font-medium text-xs block mb-2">
@@ -181,6 +175,19 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
           <SubjectBreakdownEditor value={subjectBreakdown} onChange={setSubjectBreakdown} />
         </div>
 
+        {/* Marks & Negative Marking */}
+        <div>
+          <label className="text-txt-secondary font-medium text-xs block mb-2">
+            Marks & Negative Marking
+          </label>
+          <MarksSettingsEditor
+            totalMarks={totalMarks}
+            negMarkEnabled={negMarkEnabled}
+            negMarkValue={negMarkValue}
+            onChange={handleMarksChange}
+          />
+        </div>
+
         {/* Save button */}
         <div>
           <button
@@ -189,7 +196,7 @@ function SettingsPhase({ testId, initialSeconds, onSaved }) {
             className="bg-brand hover:bg-brand-dark disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition flex items-center gap-2"
           >
             {saving && <Spinner />}
-            {saving ? "Saving…" : "Save Settings"}
+            {saving ? "Saving…" : isEdit ? "Save Changes" : "Save Settings"}
           </button>
         </div>
       </div>
@@ -802,6 +809,7 @@ export default function AdminCustomTestPage() {
   const [savedMcqs, setSavedMcqs] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [showSettingsEditor, setShowSettingsEditor] = useState(false);
 
   const mcqPhaseRef = useRef(null);
 
@@ -840,8 +848,9 @@ export default function AdminCustomTestPage() {
 
   // Called by SettingsPhase after a successful PATCH
   // Merges the server response fields into local test state → triggers phase change
-  function handleSettingsSaved({ timeLimitSeconds, totalMcqs, subjectBreakdown, status }) {
-    setTest((prev) => ({ ...prev, timeLimitSeconds, totalMcqs, subjectBreakdown, status }));
+  function handleSettingsSaved({ timeLimitSeconds, totalMcqs, subjectBreakdown, totalMarks, negativeMarking, status }) {
+    setTest((prev) => ({ ...prev, timeLimitSeconds, totalMcqs, subjectBreakdown, totalMarks, negativeMarking, status }));
+    setShowSettingsEditor(false); // collapse back down after a later-phase edit
   }
 
   // Called after a JSON import changes totalMcqs on the server, so the
@@ -926,6 +935,32 @@ export default function AdminCustomTestPage() {
       )}
 
       {/* Phase 2 — MCQ editor (all statuses except settings_pending) */}
+      {!isPhase1 && (
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => setShowSettingsEditor((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-txt-secondary hover:text-txt-primary border border-border hover:border-txt-muted rounded-lg px-3 py-2 transition"
+          >
+            ⚙ {showSettingsEditor ? "Hide Settings Editor" : "Edit Test Settings (Time Limit, Subject Breakdown, Marks)"}
+          </button>
+          {showSettingsEditor && (
+            <div className="mt-4">
+              <SettingsPhase
+                testId={testId}
+                initialSeconds={test.timeLimitSeconds}
+                initialSubjectBreakdown={test.subjectBreakdown || []}
+                initialTotalMarks={test.totalMarks}
+                initialNegMarkEnabled={test.negativeMarking?.enabled || false}
+                initialNegMarkValue={test.negativeMarking?.marksPerWrong}
+                isEdit
+                onSaved={handleSettingsSaved}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {!isPhase1 && (
         <McqPhase
           ref={mcqPhaseRef}

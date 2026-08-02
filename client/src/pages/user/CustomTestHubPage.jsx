@@ -150,6 +150,44 @@ export default function CustomTestHubPage() {
         </div>
       </div>
 
+      {/* Subject breakdown — a dedicated, clearly-labeled card (not buried
+          as a sub-row inside the generic info card above) so a user
+          deciding whether to start this test can immediately see which
+          subjects it covers, without needing to click "Start Test" first
+          and see it only in the confirmation popup. */}
+      {subjectBreakdown && subjectBreakdown.length > 0 && (
+        <div className="bg-white dark:bg-dark-surface rounded-xl border border-gray-200 dark:border-dark-border shadow-sm p-5 mb-6">
+          <h2 className="text-sm font-bold text-gray-800 dark:text-slate-100 mb-1">
+            Subjects Covered in This Test
+          </h2>
+          <p className="text-xs text-gray-400 mb-4">
+            This test draws questions from the subjects below, roughly in these proportions.
+          </p>
+          <div className="space-y-3">
+            {subjectBreakdown.map((row, i) => (
+              <div key={i}>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-gray-700 dark:text-slate-200 font-medium">
+                    {row.subject}
+                  </span>
+                  {row.percentage != null && (
+                    <span className="text-blue-900 dark:text-slate-100 font-bold">
+                      {row.percentage}%
+                    </span>
+                  )}
+                </div>
+                <div className="h-2 bg-gray-100 dark:bg-dark-surface2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(0, row.percentage || 0))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Pass-mark callout */}
       <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-8 text-sm text-yellow-800 font-medium flex items-center gap-2">
         <RiErrorWarningFill className="text-yellow-600 text-lg shrink-0" />

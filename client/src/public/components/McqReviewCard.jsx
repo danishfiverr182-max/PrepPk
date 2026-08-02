@@ -14,6 +14,7 @@
 
 import McqImage from "./McqImage";
 import Badge from "../../components/ui/Badge";
+import { noCopyProps } from "../../utils/noCopyProps";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -43,7 +44,10 @@ export default function McqReviewCard({ mcq, userAnswer, questionNumber }) {
   const wasCorrect  = wasAnswered && userAnswer === correctIndex;
 
   return (
-    <div className="bg-surface rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200 p-5 mb-4 dark:bg-dark-surface dark:border-dark-border">
+    <div
+      className="mcq-no-copy bg-surface rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow duration-200 p-5 mb-4 dark:bg-dark-surface dark:border-dark-border"
+      {...noCopyProps}
+    >
       {/* Question header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <p className="text-sm font-bold text-txt-secondary dark:text-slate-400">Question {questionNumber}</p>

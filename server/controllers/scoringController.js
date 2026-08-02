@@ -61,6 +61,51 @@ function determinePassMark(test, sectionType) {
   return completedCount >= 2 ? 50 : 80;
 }
 
+/**
+ * Reads { totalMarks, negativeMarking } off a Section or standalone Test
+ * document, with safe fallbacks for older documents saved before these
+ * fields existed (default totalMarks = 100, negative marking off).
+ */
+function getMarksConfig(doc) {
+  const totalMarks = typeof doc?.totalMarks === "number" && doc.totalMarks > 0
+    ? doc.totalMarks
+    : 100;
+  const negEnabled = doc?.negativeMarking?.enabled === true;
+  const marksPerWrong = negEnabled && typeof doc.negativeMarking.marksPerWrong === "number"
+    ? Math.max(0, doc.negativeMarking.marksPerWrong)
+    : 0;
+  return { totalMarks, negativeMarkingEnabled: negEnabled, marksPerWrong };
+}
+
+/**
+ * Computes marks-based results from a correct/wrong/total breakdown.
+ * Each MCQ is worth (totalMarks / totalMcqs) marks. Wrong (attempted)
+ * answers deduct marksPerWrong marks each when negative marking is
+ * enabled. Unanswered questions are never penalised. obtainedMarks is
+ * NOT clamped to 0 — a heavily negative-marked attempt can legitimately
+ * score below zero, same as on paper.
+ */
+function computeMarks({ correctCount, wrongCount, totalMcqs, config }) {
+  const { totalMarks, negativeMarkingEnabled, marksPerWrong } = config;
+  const marksPerQuestion = totalMcqs > 0 ? totalMarks / totalMcqs : 0;
+
+  const obtainedMarks =
+    correctCount * marksPerQuestion -
+    (negativeMarkingEnabled ? wrongCount * marksPerWrong : 0);
+
+  const percentage =
+    totalMarks > 0
+      ? Math.round((obtainedMarks / totalMarks) * 10000) / 100
+      : 0;
+
+  return {
+    totalMarks,
+    obtainedMarks: Math.round(obtainedMarks * 100) / 100,
+    percentage,
+    negativeMarkingApplied: negativeMarkingEnabled,
+  };
+}
+
 // ── submitSection ─────────────────────────────────────────────────────────────
 /**
  * POST /api/results/submit
@@ -141,12 +186,15 @@ export async function submitSection(req, res) {
     // This skips the Section lookup entirely, same as before.
     let mcqs;
     let totalMcqs;
+    let marksConfig;
 
     if (test.isStandalone === true) {
       mcqs = await Mcq.find({ testId: test._id, testModel: "Test" })
         .sort({ order: 1 })
         .lean();
       totalMcqs = mcqs.length;
+      // Standalone tests carry their own totalMarks/negativeMarking.
+      marksConfig = getMarksConfig(test);
     } else {
       // For "standalone" sectionType on a non-flagged test we look for
       // whichever single slot is complete (legacy fallback).
@@ -172,13 +220,16 @@ export async function submitSection(req, res) {
         return res.status(404).json({ message: "Section not found or not yet published." });
       }
 
-      const section = await Section.findById(sectionRefId).select("mcqs").lean();
+      const section = await Section.findById(sectionRefId)
+        .select("mcqs totalMarks negativeMarking")
+        .lean();
       if (!section) {
         return res.status(404).json({ message: "Section data not found." });
       }
 
       mcqs = section.mcqs ?? [];
       totalMcqs = mcqs.length;
+      marksConfig = getMarksConfig(section);
     }
 
     // ── Step 4: Determine pass mark ───────────────────────────────────────
@@ -197,6 +248,7 @@ export async function submitSection(req, res) {
     }
 
     let score = 0;
+    let wrongCount = 0;
 
     for (const mcq of mcqs) {
       const mcqIdStr = mcq._id.toString();
@@ -206,9 +258,11 @@ export async function submitSection(req, res) {
       // `correctOption`; default Section-based MCQs use `correctIndex`.
       const correctAnswer = test.isStandalone === true ? mcq.correctOption : mcq.correctIndex;
 
-      // No negative marking: only increment on exact match
       if (typeof selected === "number" && selected === correctAnswer) {
         score += 1;
+      } else if (typeof selected === "number") {
+        // Attempted but wrong — only these count toward negative marking.
+        wrongCount += 1;
       }
 
       // Always record the answer (null for unanswered)
@@ -218,11 +272,9 @@ export async function submitSection(req, res) {
       });
     }
 
-    // ── Step 6: Calculate percentage ──────────────────────────────────────
-    const percentage =
-      totalMcqs > 0
-        ? Math.round((score / totalMcqs) * 10000) / 100 // round to 2 dp
-        : 0;
+    // ── Step 6: Calculate marks-based score & percentage ───────────────────
+    const { totalMarks, obtainedMarks, percentage, negativeMarkingApplied } =
+      computeMarks({ correctCount: score, wrongCount, totalMcqs, config: marksConfig });
 
     // ── Step 7: Determine passed ──────────────────────────────────────────
     const passed = percentage >= passMarkUsed;
@@ -236,6 +288,9 @@ export async function submitSection(req, res) {
       answers:     answerDocs,
       score,
       totalMcqs,
+      totalMarks,
+      obtainedMarks,
+      negativeMarkingApplied,
       percentage,
       passed,
       passMarkUsed,
@@ -247,6 +302,9 @@ export async function submitSection(req, res) {
     return res.status(201).json({
       score,
       totalMcqs,
+      totalMarks,
+      obtainedMarks,
+      negativeMarkingApplied,
       percentage,
       passed,
       passMarkUsed,

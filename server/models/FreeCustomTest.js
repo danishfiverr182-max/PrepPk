@@ -60,6 +60,17 @@ const freeCustomTestSchema = new Schema(
     // Admin-entered subject % breakdown, shown on the user's Start Test popup.
     subjectBreakdown: { type: [subjectBreakdownSchema], default: [] },
 
+    // Total marks for this test (editable, default 100). Each MCQ is
+    // worth (totalMarks / totalMcqs) marks.
+    totalMarks: { type: Number, default: 100, min: 1 },
+
+    // Negative marking: when enabled, deducts marksPerWrong per wrong
+    // (attempted) answer. Unanswered questions are never penalised.
+    negativeMarking: {
+      enabled:       { type: Boolean, default: false },
+      marksPerWrong: { type: Number, default: 0, min: 0 },
+    },
+
     // Prompt 13 — explicit flags (always true/true for this model, but kept
     // literal on the document so admin tooling and queries don't have to
     // infer them from "which collection is this").

@@ -148,6 +148,23 @@ const testSchema = new Schema(
       default: [],
     },
 
+    // Total marks for standalone custom tests (editable, default 100).
+    // Each MCQ is worth (totalMarks / totalMcqs) marks. Not used by
+    // default category tests (those set totalMarks per-section instead).
+    totalMarks: {
+      type: Number,
+      default: 100,
+      min: 1,
+    },
+
+    // Negative marking for standalone custom tests. When enabled, each
+    // wrong (attempted) answer deducts marksPerWrong marks. Unanswered
+    // questions are never penalised.
+    negativeMarking: {
+      enabled:       { type: Boolean, default: false },
+      marksPerWrong: { type: Number, default: 0, min: 0 },
+    },
+
     // Lifecycle status for standalone custom category tests.
     // "settings_pending" = just created, timer/MCQ count not yet set.
     // "mcqs_pending"     = settings saved, MCQs being added.

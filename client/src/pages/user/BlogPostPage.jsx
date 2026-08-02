@@ -63,6 +63,18 @@ function RelatedPostCard({ post }) {
   );
 }
 
+function SkeletonRelatedCard() {
+  return (
+    <div className="rounded-xl border border-border dark:border-dark-border overflow-hidden animate-pulse">
+      <div className="aspect-[16/9] bg-bg dark:bg-dark-surface2" />
+      <div className="p-4 space-y-2">
+        <div className="h-3 bg-border dark:bg-dark-border rounded w-5/6" />
+        <div className="h-3 bg-border dark:bg-dark-border rounded w-2/3" />
+      </div>
+    </div>
+  );
+}
+
 function SkeletonPost() {
   return (
     <div className="max-w-[2000px] mx-auto px-4 md:px-8 py-10 animate-pulse space-y-4">
@@ -89,11 +101,33 @@ export default function BlogPostPage() {
   const [relatedPosts, setRelatedPosts] = useState([]);
   const [prevPost, setPrevPost] = useState(null);
   const [nextPost, setNextPost] = useState(null);
+  // Tracks whether the related-posts/prev-next fetch (below) is still in
+  // flight. Without this, that section rendered nothing at all until the
+  // network call resolved, then suddenly popped in — a visible layout
+  // shift that pushed everything below it (including the footer) down,
+  // most noticeable if the reader had already started scrolling by then.
+  const [relatedLoading, setRelatedLoading] = useState(true);
 
   // Site-wide reading-theme switch (AdminSettings.blogTheme), toggled from
-  // the "Apply Medium Style Theme" button on the admin Blog page. Defaults
-  // to "classic" so a slow/failed fetch never blocks rendering the post.
-  const [blogTheme, setBlogTheme] = useState("classic");
+  // the "Apply Medium Style Theme" button on the admin Blog page. Cached
+  // in sessionStorage so only the first blog post opened in a session
+  // waits on the settings round-trip — every post after that already
+  // knows the theme and renders immediately. Defaults to "classic" so a
+  // slow/failed fetch never blocks rendering the post.
+  const cachedTheme = sessionStorage.getItem("prepPkBlogTheme");
+  const [blogTheme, setBlogTheme] = useState(
+    cachedTheme === "medium" || cachedTheme === "classic" ? cachedTheme : "classic"
+  );
+  // Whether the theme is known for certain (from cache, or once the
+  // settings call below settles). Previously the page rendered "classic"
+  // immediately and could switch to "medium" — a structurally different,
+  // taller layout — once the settings call resolved, mid-read. That
+  // switch is what was showing up as sudden extra space above the navbar
+  // and above the footer, and as "text taking time to load" while
+  // scrolling: readers were briefly seeing the leaner classic version get
+  // replaced by the fuller one. We now hold the skeleton until this is
+  // known, so the reader only ever sees the correct final layout.
+  const [themeReady, setThemeReady] = useState(Boolean(cachedTheme));
 
   const fetchPost = useCallback(() => {
     setLoading(true);
@@ -120,18 +154,36 @@ export default function BlogPostPage() {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Safety net: if /settings/contact hasn't resolved within 2.5s, stop
+    // waiting on it and just proceed with whatever blogTheme currently is
+    // (the "classic" default). A slow settings endpoint should never trap
+    // a reader on the loading skeleton indefinitely.
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setThemeReady(true);
+    }, 2500);
+
     api
       .get("/settings/contact")
       .then(({ data }) => {
         if (!cancelled && (data.blogTheme === "classic" || data.blogTheme === "medium")) {
           setBlogTheme(data.blogTheme);
+          sessionStorage.setItem("prepPkBlogTheme", data.blogTheme);
         }
       })
       .catch(() => {
         // Silently keep "classic" — a failed settings fetch should never
         // block a reader from seeing the article.
+      })
+      .finally(() => {
+        clearTimeout(safetyTimer);
+        if (!cancelled) setThemeReady(true);
       });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   // ── Related posts: 2-3 published posts sharing at least one tag,
@@ -140,6 +192,8 @@ export default function BlogPostPage() {
   // backend query — cheap enough at blog-sized volumes.
   useEffect(() => {
     if (!post) return;
+
+    setRelatedLoading(true);
 
     // limit bumped from 20 -> 50 so this same fetch (sorted by publishedAt
     // desc, same as the public listing) can also supply prev/next
@@ -170,7 +224,8 @@ export default function BlogPostPage() {
         setRelatedPosts([]);
         setPrevPost(null);
         setNextPost(null);
-      });
+      })
+      .finally(() => setRelatedLoading(false));
   }, [post]);
 
   const { title, description, jsonLd, url } = useSeoMeta("blog-post", { post: post || {} });
@@ -179,7 +234,7 @@ export default function BlogPostPage() {
     ? categories.find((c) => c.slug === post.relatedCategorySlug)
     : null;
 
-  if (loading) {
+  if (loading || !themeReady) {
     return <SkeletonPost />;
   }
 
@@ -232,6 +287,7 @@ export default function BlogPostPage() {
           relatedCategory={relatedCategory}
           prevPost={prevPost}
           nextPost={nextPost}
+          relatedLoading={relatedLoading}
           shareUrl={url}
         />
       </>
@@ -308,16 +364,20 @@ export default function BlogPostPage() {
         </div>
       )}
 
-      {/* Related posts */}
-      {relatedPosts.length > 0 && (
+      {/* Related posts — skeleton reserves the space while loading so this
+          section never suddenly appears and pushes the footer down once
+          the reader has already scrolled past it. */}
+      {(relatedLoading || relatedPosts.length > 0) && (
         <div className="mt-12 pt-8 border-t border-border dark:border-dark-border">
           <h2 className="text-lg font-bold text-txt-primary dark:text-slate-100 mb-4">
             Related Posts
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {relatedPosts.map((rp) => (
-              <RelatedPostCard key={rp.slug} post={rp} />
-            ))}
+            {relatedLoading
+              ? [0, 1, 2].map((i) => <SkeletonRelatedCard key={i} />)
+              : relatedPosts.map((rp) => (
+                  <RelatedPostCard key={rp.slug} post={rp} />
+                ))}
           </div>
         </div>
       )}

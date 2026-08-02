@@ -23,6 +23,7 @@ import MCQList        from "../../../components/admin/MCQList";
 import JsonMcqImportButton from "../../../components/admin/JsonMcqImportButton";
 import useSectionPage from "../../../hooks/useSectionPage";
 import SubjectBreakdownEditor from "../../../components/admin/SubjectBreakdownEditor";
+import MarksSettingsEditor from "../../../components/admin/MarksSettingsEditor";
 import { useAdminCategories } from "../../../context/CategoriesContext";
 import AdminErrorBoundary     from "../../../components/admin/AdminErrorBoundary";
 import api from "../../../api/axios";
@@ -247,6 +248,7 @@ function FreeMockAcademicSectionPageInner() {
     totalMCQs, mcqCountNum,
     pendingCount, showReduceDialog,
     subjectBreakdown,
+    totalMarks, negMarkEnabled, negMarkValue,
     mcqs,
     saveStatus,
     canSave,
@@ -258,6 +260,7 @@ function FreeMockAcademicSectionPageInner() {
     handleReduceConfirm,
     handleReduceCancel,
     handleSubjectBreakdownChange,
+    handleMarksChange,
     handleMcqsChange,
     handleSingleMcqEdit,
     handleAddMcqBatch,
@@ -446,29 +449,18 @@ function FreeMockAcademicSectionPageInner() {
       {/* ── Step 2: MCQ Count ────────────────────────────────── */}
       <StepCard
         number="2"
-        title="Total MCQ Count"
-        description="How many questions should this academic section contain?"
+        title="MCQs (JSON Import)"
+        description="Import a JSON file of questions for this academic section. The number of questions in the file becomes the section's total — there's no separate count to set."
       >
-        <div className="flex items-center gap-4">
-          <input
-            type="number"
-            min="1"
-            max="200"
-            value={totalMCQs}
-            onChange={handleCountChange}
-            placeholder="e.g. 20"
-            className="w-28 bg-bg border border-border hover:border-txt-muted focus:ring-2 focus:ring-brand/60 focus:ring-1 focus:ring-accent/30 rounded-lg px-3 py-2.5 text-txt-primary text-sm font-semibold focus:outline-none transition-colors"
-          />
-          {mcqCountNum > 0 && (
-            <span className="text-sm text-txt-secondary">
-              {mcqs.length} / {mcqCountNum} containers added
-            </span>
-          )}
-        </div>
+        {mcqCountNum > 0 && (
+          <p className="text-sm text-txt-secondary mb-3">
+            <span className="font-semibold text-txt-primary">{mcqs.length}</span> MCQs imported for this section.
+          </p>
+        )}
 
-        <div className="mt-4 pt-4 border-t border-border/60">
+        <div>
           <p className="text-xs text-txt-muted mb-2">
-            Or skip the manual steps entirely   upload a JSON file and the MCQ count and containers will be created automatically.
+            Upload a JSON file and the MCQ count and containers will be created automatically.
           </p>
           <JsonMcqImportButton mode="container" onImport={handleJsonImport} />
         </div>
@@ -483,6 +475,20 @@ function FreeMockAcademicSectionPageInner() {
         <SubjectBreakdownEditor value={subjectBreakdown} onChange={handleSubjectBreakdownChange} />
       </StepCard>
 
+      {/* ── Step 3b: Marks & Negative Marking ───────────────── */}
+      <StepCard
+        number="3"
+        title="Marks & Negative Marking"
+        description="Set the total marks for this section and, if this exam uses negative marking, how many marks to deduct per wrong answer."
+      >
+        <MarksSettingsEditor
+          totalMarks={totalMarks}
+          negMarkEnabled={negMarkEnabled}
+          negMarkValue={negMarkValue}
+          onChange={handleMarksChange}
+        />
+      </StepCard>
+
       {/* ── Step 3: MCQ Containers ───────────────────────────── */}
       <StepCard
         number="4"
@@ -490,7 +496,7 @@ function FreeMockAcademicSectionPageInner() {
         description={
           mcqCountNum > 0
             ? `Add up to ${mcqCountNum} MCQ containers. Click 'Add MCQs' to load 10 at a time.`
-            : "Set the MCQ count above before adding containers."
+            : "Import a JSON file above to create the containers."
         }
       >
         {mcqCountNum > 0 ? (
@@ -503,7 +509,7 @@ function FreeMockAcademicSectionPageInner() {
           />
         ) : (
           <div className="text-center py-8 text-txt-muted text-sm">
-            Set the total MCQ count in Step 2 to unlock this section.
+            Import a JSON file in Step 2 to populate this section.
           </div>
         )}
       </StepCard>

@@ -221,6 +221,28 @@ export default function Footer({ onBuyPremiumClick }) {
         </div>
       </div>
 
+      {/* ── Legal / info links ───────────────────────────── */}
+      <div className="px-4 py-4 border-t border-slate-200 dark:border-white/10">
+        <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          {[
+            { to: "/about-us", label: "About Us" },
+            { to: "/contact-us", label: "Contact Us" },
+            { to: "/privacy-policy", label: "Privacy Policy" },
+            { to: "/terms-and-conditions", label: "Terms & Conditions" },
+            { to: "/disclaimer", label: "Disclaimer" },
+          ].map((link) => (
+            <li key={link.to}>
+              <Link
+                to={link.to}
+                className="text-xs text-slate-500 dark:text-purple-300/60 hover:text-slate-900 dark:hover:text-white transition"
+              >
+                {link.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+
       {/* ── Copyright bar ────────────────────────────────── */}
       <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10">
         <p className="text-center text-xs text-slate-500 dark:text-purple-400/40">

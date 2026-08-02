@@ -166,7 +166,7 @@ router.get("/categories/:slug/tests/in-progress", verifyAdmin, async (req, res) 
 // Response: { sectionId, savedAt }
 router.post("/sections/verbal/draft", verifyAdmin, async (req, res) => {
   try {
-    const { testId, timeLimit, totalMCQs, mcqs = [], subjectBreakdown } = req.body;
+    const { testId, timeLimit, totalMCQs, mcqs = [], subjectBreakdown, totalMarks, negativeMarking } = req.body;
 
     // ── Validation ────────────────────────────────────────────
     if (!testId || !testId.match(/^[a-f\d]{24}$/i)) {
@@ -178,9 +178,32 @@ router.post("/sections/verbal/draft", verifyAdmin, async (req, res) => {
     if (Number(timeLimit) < 60) {
       return res.status(400).json({ message: "timeLimit must be at least 60 seconds (1 minute)." });
     }
-    if (!totalMCQs || Number(totalMCQs) < 1) {
-      return res.status(400).json({ message: "totalMCQs must be at least 1." });
+    // totalMCQs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually get imported (via JSON). A draft save
+    // with no MCQs yet (e.g. the admin only set the timer, subject
+    // breakdown, or marks so far) is valid and should persist normally
+    // instead of being blocked here.
+    const resolvedTotalMCQs = Number(totalMCQs) || 0;
+    if (totalMarks !== undefined && totalMarks !== null && Number(totalMarks) < 1) {
+      return res.status(400).json({ message: "totalMarks must be at least 1." });
     }
+    if (
+      negativeMarking &&
+      negativeMarking.enabled &&
+      (typeof negativeMarking.marksPerWrong !== "number" || negativeMarking.marksPerWrong < 0)
+    ) {
+      return res.status(400).json({ message: "marksPerWrong must be 0 or greater." });
+    }
+
+    const resolvedTotalMarks = totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+      ? Number(totalMarks)
+      : 100;
+    const resolvedNegativeMarking = {
+      enabled: negativeMarking?.enabled === true,
+      marksPerWrong: negativeMarking?.enabled === true
+        ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+        : 0,
+    };
 
     const test = await Test.findById(testId);
     if (!test) {
@@ -220,8 +243,10 @@ router.post("/sections/verbal/draft", verifyAdmin, async (req, res) => {
         {
           $set: {
             timeLimit: Number(timeLimit),
-            totalMCQs: Number(totalMCQs),
+            totalMCQs: resolvedTotalMCQs,
             subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+            totalMarks: resolvedTotalMarks,
+            negativeMarking: resolvedNegativeMarking,
             mcqs:      sanitisedMcqs,
             category:  test.category,
           },
@@ -238,8 +263,10 @@ router.post("/sections/verbal/draft", verifyAdmin, async (req, res) => {
         type:      "verbal",
         category:  test.category,
         timeLimit: Number(timeLimit),
-        totalMCQs: Number(totalMCQs),
+        totalMCQs: resolvedTotalMCQs,
         subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+        totalMarks: resolvedTotalMarks,
+        negativeMarking: resolvedNegativeMarking,
         mcqs:      sanitisedMcqs,
       });
 
@@ -294,6 +321,8 @@ router.get("/sections/verbal/:testId", verifyAdmin, async (req, res) => {
         timeLimit:  section.timeLimit,
         totalMCQs:  section.totalMCQs,
         subjectBreakdown: section.subjectBreakdown || [],
+        totalMarks: typeof section.totalMarks === "number" ? section.totalMarks : 100,
+        negativeMarking: section.negativeMarking || { enabled: false, marksPerWrong: 0 },
         mcqs:       section.mcqs.map((m) => ({
           _id:          m._id,
           question:     m.question,
@@ -351,11 +380,16 @@ router.post("/sections/verbal/save/:testId", verifyAdmin, async (req, res) => {
   }
 
   // ── Validate completeness ─────────────────────────────────
-  if (section.mcqs.length !== section.totalMCQs) {
+  // totalMCQs is no longer admin-entered up front — it's derived from
+  // however many MCQs actually ended up here (normally via JSON
+  // import). Just require at least one, then sync totalMCQs to match
+  // reality rather than validating against a separate target.
+  if (section.mcqs.length === 0) {
     return res.status(400).json({
-      message: `MCQ count mismatch. Expected ${section.totalMCQs}, received ${section.mcqs.length}.`,
+      message: "Import a JSON file with at least one MCQ before saving this section.",
     });
   }
+  section.totalMCQs = section.mcqs.length;
 
   for (let i = 0; i < section.mcqs.length; i++) {
     const mcq = section.mcqs[i];
@@ -488,7 +522,7 @@ router.post(
 // Response: { sectionId, savedAt }
 router.post("/sections/nonverbal/draft", verifyAdmin, async (req, res) => {
   try {
-    const { testId, timeLimit, totalMCQs, mcqs = [], subjectBreakdown } = req.body;
+    const { testId, timeLimit, totalMCQs, mcqs = [], subjectBreakdown, totalMarks, negativeMarking } = req.body;
 
     if (!testId || !testId.match(/^[a-f\d]{24}$/i)) {
       return res.status(400).json({ message: "Valid testId is required." });
@@ -499,9 +533,32 @@ router.post("/sections/nonverbal/draft", verifyAdmin, async (req, res) => {
     if (Number(timeLimit) < 60) {
       return res.status(400).json({ message: "timeLimit must be at least 60 seconds." });
     }
-    if (!totalMCQs || Number(totalMCQs) < 1) {
-      return res.status(400).json({ message: "totalMCQs must be at least 1." });
+    // totalMCQs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually get imported (via JSON). A draft save
+    // with no MCQs yet (e.g. the admin only set the timer, subject
+    // breakdown, or marks so far) is valid and should persist normally
+    // instead of being blocked here.
+    const resolvedTotalMCQs = Number(totalMCQs) || 0;
+    if (totalMarks !== undefined && totalMarks !== null && Number(totalMarks) < 1) {
+      return res.status(400).json({ message: "totalMarks must be at least 1." });
     }
+    if (
+      negativeMarking &&
+      negativeMarking.enabled &&
+      (typeof negativeMarking.marksPerWrong !== "number" || negativeMarking.marksPerWrong < 0)
+    ) {
+      return res.status(400).json({ message: "marksPerWrong must be 0 or greater." });
+    }
+
+    const resolvedTotalMarks = totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+      ? Number(totalMarks)
+      : 100;
+    const resolvedNegativeMarking = {
+      enabled: negativeMarking?.enabled === true,
+      marksPerWrong: negativeMarking?.enabled === true
+        ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+        : 0,
+    };
 
     const test = await Test.findById(testId);
     if (!test) {
@@ -535,8 +592,10 @@ router.post("/sections/nonverbal/draft", verifyAdmin, async (req, res) => {
         {
           $set: {
             timeLimit: Number(timeLimit),
-            totalMCQs: Number(totalMCQs),
+            totalMCQs: resolvedTotalMCQs,
             subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+            totalMarks: resolvedTotalMarks,
+            negativeMarking: resolvedNegativeMarking,
             mcqs:      sanitisedMcqs,
             category:  test.category,
           },
@@ -550,8 +609,10 @@ router.post("/sections/nonverbal/draft", verifyAdmin, async (req, res) => {
         type:      "nonVerbal",
         category:  test.category,
         timeLimit: Number(timeLimit),
-        totalMCQs: Number(totalMCQs),
+        totalMCQs: resolvedTotalMCQs,
         subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+        totalMarks: resolvedTotalMarks,
+        negativeMarking: resolvedNegativeMarking,
         mcqs:      sanitisedMcqs,
       });
 
@@ -600,6 +661,8 @@ router.get("/sections/nonverbal/:testId", verifyAdmin, async (req, res) => {
         timeLimit:  section.timeLimit,
         totalMCQs:  section.totalMCQs,
         subjectBreakdown: section.subjectBreakdown || [],
+        totalMarks: typeof section.totalMarks === "number" ? section.totalMarks : 100,
+        negativeMarking: section.negativeMarking || { enabled: false, marksPerWrong: 0 },
         mcqs:       section.mcqs.map((m) => ({
           _id:           m._id,
           question:      m.question,
@@ -650,11 +713,16 @@ router.post("/sections/nonverbal/save/:testId", verifyAdmin, async (req, res) =>
   }
 
   // ── Validate completeness ─────────────────────────────────
-  if (section.mcqs.length !== section.totalMCQs) {
+  // totalMCQs is no longer admin-entered up front — it's derived from
+  // however many MCQs actually ended up here (normally via JSON
+  // import). Just require at least one, then sync totalMCQs to match
+  // reality rather than validating against a separate target.
+  if (section.mcqs.length === 0) {
     return res.status(400).json({
-      message: `MCQ count mismatch. Expected ${section.totalMCQs}, received ${section.mcqs.length}.`,
+      message: "Import a JSON file with at least one MCQ before saving this section.",
     });
   }
+  section.totalMCQs = section.mcqs.length;
 
   for (let i = 0; i < section.mcqs.length; i++) {
     const mcq = section.mcqs[i];
@@ -742,7 +810,7 @@ router.post("/sections/nonverbal/save/:testId", verifyAdmin, async (req, res) =>
 // Response: { sectionId, savedAt }
 router.post("/sections/academic/draft", verifyAdmin, async (req, res) => {
   try {
-    const { testId, timeLimit, totalMCQs, mcqs = [], subjectBreakdown } = req.body;
+    const { testId, timeLimit, totalMCQs, mcqs = [], subjectBreakdown, totalMarks, negativeMarking } = req.body;
 
     if (!testId || !testId.match(/^[a-f\d]{24}$/i)) {
       return res.status(400).json({ message: "Valid testId is required." });
@@ -753,9 +821,32 @@ router.post("/sections/academic/draft", verifyAdmin, async (req, res) => {
     if (Number(timeLimit) < 60) {
       return res.status(400).json({ message: "timeLimit must be at least 60 seconds (1 minute)." });
     }
-    if (!totalMCQs || Number(totalMCQs) < 1) {
-      return res.status(400).json({ message: "totalMCQs must be at least 1." });
+    // totalMCQs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually get imported (via JSON). A draft save
+    // with no MCQs yet (e.g. the admin only set the timer, subject
+    // breakdown, or marks so far) is valid and should persist normally
+    // instead of being blocked here.
+    const resolvedTotalMCQs = Number(totalMCQs) || 0;
+    if (totalMarks !== undefined && totalMarks !== null && Number(totalMarks) < 1) {
+      return res.status(400).json({ message: "totalMarks must be at least 1." });
     }
+    if (
+      negativeMarking &&
+      negativeMarking.enabled &&
+      (typeof negativeMarking.marksPerWrong !== "number" || negativeMarking.marksPerWrong < 0)
+    ) {
+      return res.status(400).json({ message: "marksPerWrong must be 0 or greater." });
+    }
+
+    const resolvedTotalMarks = totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+      ? Number(totalMarks)
+      : 100;
+    const resolvedNegativeMarking = {
+      enabled: negativeMarking?.enabled === true,
+      marksPerWrong: negativeMarking?.enabled === true
+        ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+        : 0,
+    };
 
     const test = await Test.findById(testId);
     if (!test) {
@@ -786,8 +877,10 @@ router.post("/sections/academic/draft", verifyAdmin, async (req, res) => {
         {
           $set: {
             timeLimit: Number(timeLimit),
-            totalMCQs: Number(totalMCQs),
+            totalMCQs: resolvedTotalMCQs,
             subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+            totalMarks: resolvedTotalMarks,
+            negativeMarking: resolvedNegativeMarking,
             mcqs:      sanitisedMcqs,
             category:  test.category,
             // Never trust the client academic sections are never shared.
@@ -803,8 +896,10 @@ router.post("/sections/academic/draft", verifyAdmin, async (req, res) => {
         type:      "academic",
         category:  test.category,
         timeLimit: Number(timeLimit),
-        totalMCQs: Number(totalMCQs),
+        totalMCQs: resolvedTotalMCQs,
         subjectBreakdown: sanitiseSubjectBreakdown(subjectBreakdown),
+        totalMarks: resolvedTotalMarks,
+        negativeMarking: resolvedNegativeMarking,
         mcqs:      sanitisedMcqs,
         // Force false regardless of anything the client might send.
         isShared:  false,
@@ -855,6 +950,8 @@ router.get("/sections/academic/:testId", verifyAdmin, async (req, res) => {
         timeLimit:  section.timeLimit,
         totalMCQs:  section.totalMCQs,
         subjectBreakdown: section.subjectBreakdown || [],
+        totalMarks: typeof section.totalMarks === "number" ? section.totalMarks : 100,
+        negativeMarking: section.negativeMarking || { enabled: false, marksPerWrong: 0 },
         mcqs:       section.mcqs.map((m) => ({
           _id:          m._id,
           question:     m.question,
@@ -909,11 +1006,16 @@ router.post("/sections/academic/save/:testId", verifyAdmin, async (req, res) => 
   }
 
   // ── Validate completeness ─────────────────────────────────
-  if (section.mcqs.length !== section.totalMCQs) {
+  // totalMCQs is no longer admin-entered up front — it's derived from
+  // however many MCQs actually ended up here (normally via JSON
+  // import). Just require at least one, then sync totalMCQs to match
+  // reality rather than validating against a separate target.
+  if (section.mcqs.length === 0) {
     return res.status(400).json({
-      message: `MCQ count mismatch. Expected ${section.totalMCQs}, received ${section.mcqs.length}.`,
+      message: "Import a JSON file with at least one MCQ before saving this section.",
     });
   }
+  section.totalMCQs = section.mcqs.length;
 
   for (let i = 0; i < section.mcqs.length; i++) {
     const mcq = section.mcqs[i];

@@ -15,7 +15,7 @@
  * Logic/data-flow is unchanged from the previous version.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import api from "../../api/axios";
 import McqReviewCard from "../../public/components/McqReviewCard";
@@ -68,6 +68,28 @@ export default function CustomTestResultPage() {
   const [showReview, setShowReview] = useState(false);
   const [reviewMcqs, setReviewMcqs] = useState(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [nextTest, setNextTest] = useState(null); // { nextTestId, nextTestNumber } | null while loading/unavailable
+
+  const testIdForNextLookup = state?.testId;
+
+  useEffect(() => {
+    if (!testIdForNextLookup) return;
+    let cancelled = false;
+    api
+      .get(`/custom-tests/${testIdForNextLookup}/next`)
+      .then(({ data }) => {
+        if (!cancelled) setNextTest(data);
+      })
+      .catch(() => {
+        // Fails silently — worst case the button just doesn't appear, which
+        // is a safe fallback (user can still navigate manually via the group
+        // page), rather than surfacing an error for a non-critical feature.
+        if (!cancelled) setNextTest(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [testIdForNextLookup]);
 
   if (!state?.result) {
     return (
@@ -92,6 +114,11 @@ export default function CustomTestResultPage() {
 
   function handleRetake() {
     navigate(`/test/custom/${testId}`, { replace: true });
+  }
+
+  function handleNextTest() {
+    if (!nextTest?.nextTestId) return;
+    navigate(`/test/custom/${nextTest.nextTestId}`);
   }
 
   function handleToggleReview() {
@@ -150,6 +177,16 @@ export default function CustomTestResultPage() {
                 ? "Congratulations! You scored 80% or above."
                 : "Keep practising! You need 80% or above to pass."}
             </p>
+
+            {nextTest?.nextTestId && (
+              <button
+                onClick={handleNextTest}
+                className="w-full inline-flex items-center justify-center gap-2 text-sm font-bold bg-success hover:bg-green-700 text-white px-4 py-3 rounded-lg transition mb-2.5"
+              >
+                Next: Test {nextTest.nextTestNumber}
+                <span aria-hidden="true">→</span>
+              </button>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-2.5">
               <button

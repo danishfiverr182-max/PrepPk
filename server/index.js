@@ -176,7 +176,7 @@ if (process.env.NODE_ENV !== "production") {
 // ── Middleware ────────────────────────────────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://preppk.netlify.app",
+  "https://graceful-twilight-deb501.netlify.app/",
 ];
 
 app.use(

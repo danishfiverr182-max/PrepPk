@@ -86,7 +86,15 @@ const testResultSchema = new Schema(
     // Scoring fields   all calculated by scoringController before saving
     score:      { type: Number, required: true, min: 0 },
     totalMcqs:  { type: Number, required: true, min: 0 },
-    percentage: { type: Number, required: true, min: 0, max: 100 },
+    // Marks-based scoring (supports editable totalMarks + negative marking).
+    // obtainedMarks may be negative when negative marking is enabled and the
+    // learner got more wrong than right, so no min is enforced here.
+    totalMarks:    { type: Number, default: 100 },
+    obtainedMarks: { type: Number, default: 0 },
+    negativeMarkingApplied: { type: Boolean, default: false },
+    // percentage is derived from obtainedMarks/totalMarks and can go
+    // negative under negative marking, so the lower bound is relaxed.
+    percentage: { type: Number, required: true, min: -100, max: 100 },
     passed:     { type: Boolean, required: true },
 
     // Either 50 (3-section test) or 80 (standalone test)

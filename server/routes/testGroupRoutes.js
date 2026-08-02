@@ -305,21 +305,50 @@ router.post("/free-mock-tests/custom/create", adminAuth, async (req, res) => {
 // premium custom-test settings save.
 router.patch("/free-mock-tests/custom/:testId/settings", adminAuth, async (req, res) => {
   try {
-    const { timeLimitSeconds, totalMcqs, subjectBreakdown } = req.body ?? {};
-    if (!timeLimitSeconds || !totalMcqs) {
-      return res.status(400).json({ message: "timeLimitSeconds and totalMcqs are required." });
+    const { timeLimitSeconds, totalMcqs, subjectBreakdown, totalMarks, negativeMarking } = req.body ?? {};
+    if (!timeLimitSeconds) {
+      return res.status(400).json({ message: "timeLimitSeconds is required." });
     }
-    if (Number(totalMcqs) < 1) {
-      return res.status(400).json({ message: "totalMcqs must be at least 1." });
+    if (totalMarks !== undefined && totalMarks !== null && Number(totalMarks) < 1) {
+      return res.status(400).json({ message: "totalMarks must be at least 1." });
+    }
+    if (
+      negativeMarking &&
+      negativeMarking.enabled &&
+      (typeof negativeMarking.marksPerWrong !== "number" || negativeMarking.marksPerWrong < 0)
+    ) {
+      return res.status(400).json({ message: "marksPerWrong must be 0 or greater." });
     }
 
     const test = await FreeCustomTest.findById(req.params.testId);
     if (!test) return res.status(404).json({ message: "Test not found." });
 
     test.timeLimitSeconds = Number(timeLimitSeconds);
-    test.totalMcqs = Number(totalMcqs);
+    // totalMcqs is no longer required from the admin. It's derived from
+    // however many MCQs actually get imported (JSON import passes it
+    // here to keep the progress-bar target in sync), and re-derived
+    // authoritatively from the real Mcq count at publish time regardless.
+    if (totalMcqs !== undefined && totalMcqs !== null && Number(totalMcqs) >= 1) {
+      test.totalMcqs = Number(totalMcqs);
+    }
     test.subjectBreakdown = sanitiseSubjectBreakdown(subjectBreakdown);
-    test.status = "mcqs_pending"; // unlock MCQ adding
+    test.totalMarks = totalMarks !== undefined && totalMarks !== null && Number(totalMarks) >= 1
+      ? Number(totalMarks)
+      : 100;
+    test.negativeMarking = {
+      enabled: negativeMarking?.enabled === true,
+      marksPerWrong: negativeMarking?.enabled === true
+        ? Math.max(0, Number(negativeMarking.marksPerWrong) || 0)
+        : 0,
+    };
+    // Only advance the phase on the FIRST save (from settings_pending).
+    // If the admin is editing settings later — e.g. adding a subject
+    // breakdown to a test that already has MCQs or is already published —
+    // don't downgrade status and accidentally unpublish a live test or
+    // reset its phase back to "adding MCQs".
+    if (test.status === "settings_pending") {
+      test.status = "mcqs_pending"; // unlock MCQ adding
+    }
     await test.save();
 
     return res.json({
@@ -327,6 +356,8 @@ router.patch("/free-mock-tests/custom/:testId/settings", adminAuth, async (req, 
       timeLimitSeconds: test.timeLimitSeconds,
       totalMcqs: test.totalMcqs,
       subjectBreakdown: test.subjectBreakdown,
+      totalMarks: test.totalMarks,
+      negativeMarking: test.negativeMarking,
       status: test.status,
     });
   } catch (err) {
@@ -532,12 +563,14 @@ router.post("/free-mock-tests/custom/:testId/publish", adminAuth, async (req, re
     const test = await FreeCustomTest.findById(req.params.testId);
     if (!test) return res.status(404).json({ message: "Test not found." });
 
-    const targetCount = test.totalMcqs;
-    if (!targetCount) {
-      return res.status(400).json({ message: "Save test settings before publishing." });
-    }
-
+    // totalMcqs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually got imported/added. The Mcq collection
+    // is the source of truth.
     const actualCount = await Mcq.countDocuments({ testId: test._id, testModel: "FreeCustomTest" });
+
+    if (actualCount === 0) {
+      return res.status(400).json({ message: "Add at least one MCQ (via JSON import) before publishing." });
+    }
 
     if (actualCount !== test.mcqCount) {
       return res.status(409).json({
@@ -545,11 +578,8 @@ router.post("/free-mock-tests/custom/:testId/publish", adminAuth, async (req, re
       });
     }
 
-    if (actualCount !== targetCount) {
-      return res.status(400).json({
-        message: `Cannot publish. Expected ${targetCount} MCQs but only ${actualCount} saved.`,
-      });
-    }
+    // Keep totalMcqs in sync with reality rather than an admin-entered target.
+    test.totalMcqs = actualCount;
 
     // Final integrity check on all MCQs, sourced from the Mcq collection.
     const mcqDocs = await Mcq.find({ testId: test._id, testModel: "FreeCustomTest" })
@@ -882,12 +912,14 @@ router.post("/free-custom-tests/:testId/publish", adminAuth, async (req, res) =>
     const test = await FreeCustomTest.findById(req.params.testId);
     if (!test) return res.status(404).json({ message: "Test not found." });
 
-    const targetCount = test.totalMcqs;
-    if (!targetCount) {
-      return res.status(400).json({ message: "Save test settings before publishing." });
-    }
-
+    // totalMcqs is no longer admin-entered up front — it's derived from
+    // however many MCQs actually got imported/added. The Mcq collection
+    // is the source of truth.
     const actualCount = await Mcq.countDocuments({ testId: test._id, testModel: "FreeCustomTest" });
+
+    if (actualCount === 0) {
+      return res.status(400).json({ message: "Add at least one MCQ (via JSON import) before publishing." });
+    }
 
     if (actualCount !== test.mcqCount) {
       return res.status(409).json({
@@ -895,11 +927,8 @@ router.post("/free-custom-tests/:testId/publish", adminAuth, async (req, res) =>
       });
     }
 
-    if (actualCount !== targetCount) {
-      return res.status(400).json({
-        message: `Cannot publish. Expected ${targetCount} MCQs but only ${actualCount} saved.`,
-      });
-    }
+    // Keep totalMcqs in sync with reality rather than an admin-entered target.
+    test.totalMcqs = actualCount;
 
     test.status = "published";
     await test.save();
@@ -1067,6 +1096,49 @@ router.get("/free-custom-tests/hub/:testId", async (req, res) => {
 });
 
 /**
+ * GET /api/free-custom-tests/:testId/next
+ *
+ * Free-mock equivalent of /custom-tests/:testId/next above — same logic,
+ * no auth required. See that route's comment for why this queries for the
+ * next testNumber dynamically instead of assuming current + 1.
+ */
+router.get("/free-custom-tests/:testId/next", async (req, res) => {
+  try {
+    const { testId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(testId)) {
+      return res.status(404).json({ message: "Test not found." });
+    }
+
+    const test = await FreeCustomTest.findById(testId)
+      .select("groupId testNumber status")
+      .lean();
+    if (!test || test.status !== "published") {
+      return res.status(404).json({ message: "Test not found." });
+    }
+
+    if (!test.groupId) {
+      return res.json({ nextTestId: null, nextTestNumber: null });
+    }
+
+    const next = await FreeCustomTest.findOne({
+      groupId: test.groupId,
+      testNumber: { $gt: test.testNumber },
+      status: "published",
+    })
+      .sort({ testNumber: 1 })
+      .select("_id testNumber")
+      .lean();
+
+    return res.json({
+      nextTestId: next?._id || null,
+      nextTestNumber: next?.testNumber || null,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Server error." });
+  }
+});
+
+/**
  * GET /api/free-custom-tests/:testId/mcqs
  * Returns shuffled MCQs (no correctOption) for a free custom test.
  */
@@ -1128,20 +1200,48 @@ router.post("/free-custom-tests/:testId/submit", async (req, res) => {
       .sort({ order: 1 })
       .lean();
     let score = 0;
+    let wrongCount = 0;
 
     for (const mcq of mcqs) {
       const submitted = safeAnswers[mcq._id.toString()];
       if (typeof submitted === "number" && submitted === mcq.correctOption) {
         score += 1;
+      } else if (typeof submitted === "number") {
+        wrongCount += 1;
       }
     }
 
     const total = mcqs.length;
-    const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
+    // Marks config, with safe fallbacks for tests saved before these fields
+    // existed (default totalMarks = 100, negative marking off).
+    const totalMarks = typeof test.totalMarks === "number" && test.totalMarks > 0
+      ? test.totalMarks
+      : 100;
+    const negEnabled = test.negativeMarking?.enabled === true;
+    const marksPerWrong = negEnabled && typeof test.negativeMarking.marksPerWrong === "number"
+      ? Math.max(0, test.negativeMarking.marksPerWrong)
+      : 0;
+
+    const marksPerQuestion = total > 0 ? totalMarks / total : 0;
+    const obtainedMarks = Math.round(
+      (score * marksPerQuestion - (negEnabled ? wrongCount * marksPerWrong : 0)) * 100
+    ) / 100;
+    const percentage = totalMarks > 0
+      ? Math.round((obtainedMarks / totalMarks) * 10000) / 100
+      : 0;
     const passed = percentage >= (test.passMarkPercentage || 80);
 
     res.set("Cache-Control", "no-store");
-    return res.json({ score, total, percentage, passed });
+    return res.json({
+      score,
+      total,
+      totalMarks,
+      obtainedMarks,
+      negativeMarkingApplied: negEnabled,
+      percentage,
+      passed,
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error." });
   }
@@ -1262,6 +1362,59 @@ router.get("/custom-tests/hub/:testId", userProtect, async (req, res) => {
       totalMcqs: test.totalMcqs,
       passMarkPercentage: test.passMarkPercentage || 80,
       subjectBreakdown: test.subjectBreakdown || [],
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Server error." });
+  }
+});
+
+/**
+ * GET /api/custom-tests/:testId/next  (protected)
+ *
+ * Returns the next PUBLISHED test in the same group, ordered by testNumber,
+ * so the Result page can offer a one-click "Next Test →" button instead of
+ * making the user go back to the group list and hunt for where they left
+ * off (easy to lose track of in a group with dozens of tests).
+ *
+ * Skips over any gaps left by deleted tests (see utils/nextTestNumber.js —
+ * testNumber is no longer a contiguous counter) by querying for the
+ * smallest testNumber strictly greater than the current one, not simply
+ * currentNumber + 1.
+ *
+ * Returns { nextTestId: null, nextTestNumber: null } if this is the last
+ * available test in the group — the frontend hides the button in that case.
+ */
+router.get("/custom-tests/:testId/next", userProtect, async (req, res) => {
+  try {
+    const { testId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(testId)) {
+      return res.status(404).json({ message: "Test not found." });
+    }
+
+    const test = await Test.findById(testId).select("groupId testNumber status").lean();
+    if (!test || test.status !== "published") {
+      return res.status(404).json({ message: "Test not found." });
+    }
+
+    const { allowed } = await checkCustomTestAccess(req, res, test);
+    if (!allowed) return;
+
+    if (!test.groupId) {
+      return res.json({ nextTestId: null, nextTestNumber: null });
+    }
+
+    const next = await Test.findOne({
+      groupId: test.groupId,
+      testNumber: { $gt: test.testNumber },
+      status: "published",
+    })
+      .sort({ testNumber: 1 })
+      .select("_id testNumber")
+      .lean();
+
+    return res.json({
+      nextTestId: next?._id || null,
+      nextTestNumber: next?.testNumber || null,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message || "Server error." });

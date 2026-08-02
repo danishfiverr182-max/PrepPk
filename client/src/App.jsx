@@ -40,6 +40,13 @@ const NotFoundPage              = lazy(() => import("./pages/user/NotFoundPage")
 const PublicBlogListPage = lazy(() => import("./pages/user/BlogListPage"));
 const PublicBlogPostPage = lazy(() => import("./pages/user/BlogPostPage"));
 
+// Static legal/info pages (Privacy Policy, Terms, Disclaimer, About, Contact)
+const PrivacyPolicyPage    = lazy(() => import("./pages/user/legal/PrivacyPolicyPage"));
+const TermsConditionsPage  = lazy(() => import("./pages/user/legal/TermsConditionsPage"));
+const DisclaimerPage       = lazy(() => import("./pages/user/legal/DisclaimerPage"));
+const AboutUsPage          = lazy(() => import("./pages/user/legal/AboutUsPage"));
+const ContactUsPage        = lazy(() => import("./pages/user/legal/ContactUsPage"));
+
 // Part 8 Free Mock Test Engine
 const TestSectionPage       = lazy(() => import("./public/pages/TestSectionPage"));
 const SectionResultPage     = lazy(() => import("./public/pages/SectionResultPage"));
@@ -178,6 +185,13 @@ const router = createBrowserRouter([
           { path: "/free-mock-tests",                        element: <PublicErrorBoundary><FreeMockTestsPage /></PublicErrorBoundary> },
           { path: "/blog",                                   element: <PublicErrorBoundary><PublicBlogListPage /></PublicErrorBoundary> },
           { path: "/blog/:slug",                             element: <PublicErrorBoundary><PublicBlogPostPage /></PublicErrorBoundary> },
+
+          // Static legal/info pages
+          { path: "/privacy-policy",       element: <PublicErrorBoundary><PrivacyPolicyPage /></PublicErrorBoundary> },
+          { path: "/terms-and-conditions", element: <PublicErrorBoundary><TermsConditionsPage /></PublicErrorBoundary> },
+          { path: "/disclaimer",           element: <PublicErrorBoundary><DisclaimerPage /></PublicErrorBoundary> },
+          { path: "/about-us",             element: <PublicErrorBoundary><AboutUsPage /></PublicErrorBoundary> },
+          { path: "/contact-us",           element: <PublicErrorBoundary><ContactUsPage /></PublicErrorBoundary> },
           { path: "/category/:slug",                         element: <PublicErrorBoundary><CategoryPage /></PublicErrorBoundary> },
           { path: "/category/:slug/:groupSlug",              element: <PublicErrorBoundary><TestGroupPage /></PublicErrorBoundary> },
           // Custom category test routes (Prompt 3) — static segment "custom" must come before dynamic :testId

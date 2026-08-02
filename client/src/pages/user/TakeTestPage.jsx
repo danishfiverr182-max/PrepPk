@@ -25,6 +25,7 @@ import {
   clearTestProgress,
 } from "../../hooks/useTestProgress";
 import TimerDisplay from "../../components/user/TimerDisplay";
+import { noCopyProps } from "../../utils/noCopyProps";
 import { FaTriangleExclamation } from "react-icons/fa6";
 
 const LS_KEY = (testId) => `premiumTest_${testId}`;
@@ -671,7 +672,7 @@ export default function TakeTestPage() {
           >
             {/* Question Details */}
             {currentMcq ? (
-              <div className="space-y-6">
+              <div className="space-y-6 mcq-no-copy" {...noCopyProps}>
                 {/* Question Metadata (hidden for non-verbal, shown in side panel instead) */}
                 {!currentMcq.imageUrl && (
                   <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">

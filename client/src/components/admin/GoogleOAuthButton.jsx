@@ -15,7 +15,7 @@ export default function GoogleOAuthButton() {
     <button
       type="button"
       onClick={handleClick}
-      className="w-full flex items-center justify-center gap-3 border border-border bg-white hover:bg-bg text-txt-primary font-semibold text-sm py-2.5 rounded-lg transition shadow-sm"
+      className="w-full flex items-center justify-center gap-3 border border-border bg-black hover:bg-bg text-white font-semibold text-sm py-2.5 rounded-lg transition shadow-sm"
     >
       {/* Google "G" logo inline SVG, brand colors */}
       <svg className="w-4.5 h-4.5" viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">

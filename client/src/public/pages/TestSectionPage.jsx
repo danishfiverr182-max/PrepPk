@@ -28,6 +28,7 @@ import {
   clearTestProgress,
 } from "../../hooks/useTestProgress";
 import TimerDisplay from "../../components/user/TimerDisplay";
+import { noCopyProps } from "../../utils/noCopyProps";
 import { FaTriangleExclamation } from "react-icons/fa6";
 
 const LS_KEY = (testId) => `freeTest_${testId}`;
@@ -619,7 +620,7 @@ export default function TestSectionPage() {
             className={`w-full ${currentMcq?.imageUrl ? "max-w-6xl" : "max-w-3xl"} flex-1 flex flex-col justify-between`}
           >
             {currentMcq ? (
-              <div className="space-y-6">
+              <div className="space-y-6 mcq-no-copy" {...noCopyProps}>
                 {!currentMcq.imageUrl && (
                   <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
                     <span className="font-semibold tracking-wider">

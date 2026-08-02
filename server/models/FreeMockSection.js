@@ -64,6 +64,18 @@ const freeMockSectionSchema = new Schema(
     timeLimit:  { type: Number, required: true },   // seconds
     totalMCQs:  { type: Number, required: true },
     subjectBreakdown: { type: [subjectBreakdownSchema], default: [] },
+
+    // Total marks for this section (editable, default 100). Each MCQ is
+    // worth (totalMarks / totalMCQs) marks.
+    totalMarks: { type: Number, default: 100, min: 1 },
+
+    // Negative marking: when enabled, deducts marksPerWrong per wrong
+    // (attempted) answer. Unanswered questions are never penalised.
+    negativeMarking: {
+      enabled:       { type: Boolean, default: false },
+      marksPerWrong: { type: Number, default: 0, min: 0 },
+    },
+
     mcqs:       { type: [mcqSchema], default: [] },
 
     // Always false enforced server-side, client value ignored

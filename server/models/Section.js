@@ -111,6 +111,22 @@ const sectionSchema = new Schema(
       default: [],
     },
 
+    // Total marks for this section. Editable by admin — no longer hardcoded
+    // to 100 in scoring. Each MCQ is worth (totalMarks / totalMCQs) marks.
+    totalMarks: {
+      type:    Number,
+      default: 100,
+      min:     [1, "totalMarks must be at least 1"],
+    },
+
+    // Negative marking configuration. When enabled, each wrong (attempted)
+    // answer deducts marksPerWrong marks from the score. Unanswered
+    // questions are never penalised.
+    negativeMarking: {
+      enabled:       { type: Boolean, default: false },
+      marksPerWrong: { type: Number, default: 0, min: [0, "marksPerWrong cannot be negative"] },
+    },
+
     // The actual MCQ array
     mcqs: {
       type:    [mcqSchema],

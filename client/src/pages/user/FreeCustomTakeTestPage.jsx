@@ -36,6 +36,7 @@ import {
   clearTestProgress,
 } from "../../hooks/useTestProgress";
 import TimerDisplay from "../../components/user/TimerDisplay";
+import { noCopyProps } from "../../utils/noCopyProps";
 import { PiCrownSimpleFill } from "react-icons/pi";
 import { FaTriangleExclamation } from "react-icons/fa6";
 
@@ -644,7 +645,7 @@ export default function FreeCustomTakeTestPage() {
           >
             {/* Question Details */}
             {currentMcq ? (
-              <div className="space-y-6">
+              <div className="space-y-6 mcq-no-copy" {...noCopyProps}>
                 {/* Question Metadata */}
                 <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500">
                   <span className="font-semibold tracking-wider">
