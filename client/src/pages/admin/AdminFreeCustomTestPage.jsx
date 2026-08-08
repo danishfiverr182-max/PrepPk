@@ -307,7 +307,17 @@ const AUTOSAVE_INTERVAL_MS = 4000;
 const EDIT_DEBOUNCE_MS = 700;
 
 const McqPhase = forwardRef(function McqPhase(
-  { testId, targetCount, initialMcqs, isPublished, timeLimitSeconds, onTargetCountChange },
+  {
+    testId,
+    targetCount,
+    initialMcqs,
+    isPublished,
+    timeLimitSeconds,
+    subjectBreakdown,
+    totalMarks,
+    negativeMarking,
+    onTargetCountChange,
+  },
   ref
 ) {
   const navigate = useNavigate();
@@ -335,6 +345,17 @@ const McqPhase = forwardRef(function McqPhase(
   // values instead of a stale closure.
   const stateRef = useRef({ mcqs, lastSavedIndex, isPublished });
   stateRef.current = { mcqs, lastSavedIndex, isPublished };
+
+  // Source of truth for "how much has already been sent to the server",
+  // separate from the `lastSavedIndex` STATE above. This is a plain ref
+  // updated SYNCHRONOUSLY the moment a batch is claimed — before the
+  // network call even starts — so it can never go stale the way
+  // stateRef.current can when a component unmounts before its next
+  // render (e.g. navigate() right after an autosave resolves). Without
+  // this, the unmount-flush effect below can read a pre-save
+  // stateRef.current.lastSavedIndex and re-send a batch that was
+  // already saved, creating duplicate Mcq documents.
+  const flushedUpToRef = useRef(initialMcqs.length);
 
   // index → pending debounce timer id, for single-MCQ PATCH edits.
   const editTimersRef = useRef({});
@@ -447,13 +468,25 @@ const McqPhase = forwardRef(function McqPhase(
   // invariant "index < lastSavedIndex ⇒ mcqs[index]._id is set" always
   // holds for any code that runs after this resolves.
   async function doAutosave(batchEnd) {
-    const { mcqs: currentMcqs, lastSavedIndex: startIdx } = stateRef.current;
+    const { mcqs: currentMcqs } = stateRef.current;
+    // Read the start index from the ref, not from state — see the note
+    // on flushedUpToRef above. If another caller already claimed (or is
+    // claiming) this range, bail out instead of re-sending it.
+    const startIdx = flushedUpToRef.current;
+    if (batchEnd <= startIdx) return true;
+
     const newSlice = currentMcqs.slice(startIdx, batchEnd).map((m) => ({
       question: m.question,
       options: m.options,
       correctOption: m.correctOption,
     }));
     if (newSlice.length === 0) return true;
+
+    // Claim this range immediately, synchronously, before the request
+    // even goes out — this is what makes a second concurrent/late flush
+    // (e.g. from the unmount cleanup effect) a safe no-op instead of a
+    // duplicate insert.
+    flushedUpToRef.current = batchEnd;
 
     savingRef.current = true;
     setAutosaving(true);
@@ -464,6 +497,9 @@ const McqPhase = forwardRef(function McqPhase(
       setBatchError("");
       return true;
     } catch (err) {
+      // Roll back the claim so a genuine retry (interval tick, manual
+      // retry, next flush) can still send this range.
+      flushedUpToRef.current = startIdx;
       setBatchError(err.response?.data?.message || "Autosave failed — will retry shortly.");
       return false;
     } finally {
@@ -475,7 +511,8 @@ const McqPhase = forwardRef(function McqPhase(
   function tryAutosave() {
     if (stateRef.current.isPublished) return;
     if (savingRef.current) return; // a save is already in flight — skip this tick
-    const { mcqs: currentMcqs, lastSavedIndex: startIdx } = stateRef.current;
+    const { mcqs: currentMcqs } = stateRef.current;
+    const startIdx = flushedUpToRef.current;
     const availableNew = currentMcqs.length - startIdx;
     if (availableNew < AUTOSAVE_CHUNK) return;
     const batchEnd = startIdx + Math.floor(availableNew / AUTOSAVE_CHUNK) * AUTOSAVE_CHUNK;
@@ -500,7 +537,8 @@ const McqPhase = forwardRef(function McqPhase(
   // used before publish and as the best-effort "navigating away" flush.
   async function flushRemaining() {
     await waitForInFlightSave();
-    const { mcqs: currentMcqs, lastSavedIndex: startIdx } = stateRef.current;
+    const { mcqs: currentMcqs } = stateRef.current;
+    const startIdx = flushedUpToRef.current;
     const target = currentMcqs.length;
     if (target - startIdx <= 0) return true;
     if (!isBatchReady(target)) {
@@ -539,9 +577,10 @@ const McqPhase = forwardRef(function McqPhase(
   // cookies, which `credentials: "include"` below preserves.
   useEffect(() => {
     function handleBeforeUnload() {
-      const { mcqs: currentMcqs, lastSavedIndex: startIdx, isPublished: pub } = stateRef.current;
+      const { mcqs: currentMcqs, isPublished: pub } = stateRef.current;
       if (pub) return;
       if (savingRef.current) return; // an autosave is already mid-flight, let it run
+      const startIdx = flushedUpToRef.current;
       const target = currentMcqs.length;
       if (target - startIdx <= 0) return;
       if (!isBatchReady(target)) return; // don't ship incomplete MCQs
@@ -551,6 +590,10 @@ const McqPhase = forwardRef(function McqPhase(
         options: m.options,
         correctOption: m.correctOption,
       }));
+      // Claim the range immediately — this is a fire-and-forget beacon,
+      // there's no response to await, so mark it saved optimistically so
+      // nothing else re-sends it if the page happens to stay alive.
+      flushedUpToRef.current = target;
       try {
         fetch(`${api.defaults.baseURL}/free-mock-tests/custom/${testId}/mcqs/batch`, {
           method: "POST",
@@ -596,7 +639,7 @@ const McqPhase = forwardRef(function McqPhase(
   // alongside the already-saved MCQs). We guard against that case below
   // rather than silently corrupting the test's MCQ list.
   async function handleJsonImport(importedMcqs) {
-    if (stateRef.current.lastSavedIndex > 0) {
+    if (flushedUpToRef.current > 0 || stateRef.current.lastSavedIndex > 0) {
       throw new Error(
         "JSON import can only be used before any MCQs have been autosaved for this test (bulk-add only appends, it can't replace what's already saved)."
       );
@@ -609,6 +652,15 @@ const McqPhase = forwardRef(function McqPhase(
         await api.patch(`/free-mock-tests/custom/${testId}/settings`, {
           timeLimitSeconds: timeLimitSeconds,
           totalMcqs: newCount,
+          // Include the settings already saved in Phase 1 — the server
+          // save endpoint overwrites these fields unconditionally, so
+          // omitting them here was silently wiping out the admin-entered
+          // subject breakdown (and resetting marks/negative marking to
+          // their defaults) every time a JSON import's MCQ count didn't
+          // match the target count.
+          subjectBreakdown,
+          totalMarks,
+          negativeMarking,
         });
         onTargetCountChange(newCount);
       } catch (err) {
@@ -624,6 +676,7 @@ const McqPhase = forwardRef(function McqPhase(
       throw new Error(err.response?.data?.message || "Could not save the imported MCQs.");
     }
 
+    flushedUpToRef.current = importedMcqs.length;
     setMcqs(importedMcqs.map((m) => ({ ...m })));
     await fetchAndMergeIds(importedMcqs.length);
     setLastSavedIndex(importedMcqs.length);
@@ -953,6 +1006,9 @@ export default function AdminFreeCustomTestPage() {
           initialMcqs={savedMcqs}
           isPublished={isPublished}
           timeLimitSeconds={test.timeLimitSeconds}
+          subjectBreakdown={test.subjectBreakdown || []}
+          totalMarks={test.totalMarks}
+          negativeMarking={test.negativeMarking}
           onTargetCountChange={handleTargetCountChange}
         />
       )}

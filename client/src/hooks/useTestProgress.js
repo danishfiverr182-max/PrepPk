@@ -2,12 +2,18 @@
  * src/hooks/useTestProgress.js
  *
  * Persists in-progress test state (answers, current question, attempt start
- * time) to localStorage so a page refresh, accidental tab close, or crash
- * resumes the user exactly where they left off instead of restarting the
- * section from question 1.
+ * time) to sessionStorage so a page refresh or switching tabs and coming
+ * back resumes the user exactly where they left off instead of restarting
+ * the section from question 1.
+ *
+ * Deliberately backed by sessionStorage (via safeSessionStorage), not
+ * localStorage: sessionStorage is wiped automatically when the tab/window
+ * is actually closed, so closing the tab (or clicking "Exit", which
+ * explicitly calls clearTestProgress) always starts the next attempt at
+ * question 1, while a refresh or a tab-switch-and-back still resumes.
  *
  * This mirrors the approach already used for the countdown timer
- * (see hooks/useTimer.js), which survives refresh via localStorage +
+ * (see hooks/useTimer.js), which survives refresh via sessionStorage +
  * Date.now() timestamps. Progress and timer are deliberately kept as
  * separate storage entries so either can be cleared independently.
  *
@@ -28,9 +34,11 @@
  *     attempt doesn't resurrect days later.
  *   - Snapshot is cleared on successful submit (call clearTestProgress),
  *     so retaking a finished test always starts clean.
+ *   - Snapshot lives in sessionStorage, so it's also gone the moment the
+ *     tab/window is closed, regardless of MAX_AGE_MS.
  */
 
-import safeStorage from "../public/utils/safeStorage";
+import safeSessionStorage from "../public/utils/safeSessionStorage";
 
 const MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -45,13 +53,13 @@ function progressKey(storagePrefix, testId, sectionKey) {
  */
 export function loadTestProgress(storagePrefix, testId, sectionKey, mcqs) {
   const key = progressKey(storagePrefix, testId, sectionKey);
-  const snapshot = safeStorage.getJson(key, null);
+  const snapshot = safeSessionStorage.getJson(key, null);
   if (!snapshot || typeof snapshot !== "object") return null;
 
   const { answers, currentIndex, startTime, mcqIds, savedAt } = snapshot;
 
   if (!Number.isFinite(savedAt) || Date.now() - savedAt > MAX_AGE_MS) {
-    safeStorage.removeItem(key);
+    safeSessionStorage.removeItem(key);
     return null;
   }
 
@@ -64,7 +72,7 @@ export function loadTestProgress(storagePrefix, testId, sectionKey, mcqs) {
   if (!sameQuestionSet) {
     // Question pool/order changed since the snapshot was written — resuming
     // would map old answers onto the wrong questions, so start clean.
-    safeStorage.removeItem(key);
+    safeSessionStorage.removeItem(key);
     return null;
   }
 
@@ -92,7 +100,7 @@ export function saveTestProgress(
   { answers, currentIndex, startTime, mcqs },
 ) {
   const key = progressKey(storagePrefix, testId, sectionKey);
-  safeStorage.setJson(key, {
+  safeSessionStorage.setJson(key, {
     answers,
     currentIndex,
     startTime,
@@ -103,5 +111,5 @@ export function saveTestProgress(
 
 /** Call after a successful submit (alongside clearTimerStorage). */
 export function clearTestProgress(storagePrefix, testId, sectionKey) {
-  safeStorage.removeItem(progressKey(storagePrefix, testId, sectionKey));
+  safeSessionStorage.removeItem(progressKey(storagePrefix, testId, sectionKey));
 }

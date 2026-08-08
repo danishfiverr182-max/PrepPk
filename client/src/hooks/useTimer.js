@@ -2,7 +2,14 @@
  * src/hooks/useTimer.js
  *
  * Robust countdown timer hook that persists across tab switches and browser
- * refreshes using localStorage + Date.now() timestamps for accuracy.
+ * refreshes using sessionStorage + Date.now() timestamps for accuracy.
+ *
+ * Deliberately backed by sessionStorage, not localStorage: sessionStorage
+ * is wiped automatically when the tab/window is actually closed, so
+ * closing the tab (or clicking "Exit", which explicitly calls
+ * clearTimerStorage) always starts the next attempt with a fresh timer,
+ * while a refresh or a tab-switch-and-back still resumes the countdown
+ * from where it left off.
  *
  * Usage:
  *   const { secondsLeft, isRunning, formattedTime } =
@@ -39,8 +46,8 @@ export function useTimer(totalSecondsOrOptions, storageKey, onExpire) {
 
   function getInitialSeconds(initialTotal, key) {
     try {
-      const savedSecs = parseInt(localStorage.getItem(key + LS_SECONDS_SUFFIX), 10);
-      const savedTs   = parseInt(localStorage.getItem(key + LS_TIMESTAMP_SUFFIX), 10);
+      const savedSecs = parseInt(sessionStorage.getItem(key + LS_SECONDS_SUFFIX), 10);
+      const savedTs   = parseInt(sessionStorage.getItem(key + LS_TIMESTAMP_SUFFIX), 10);
 
       if (!isNaN(savedSecs) && !isNaN(savedTs) && savedSecs > 0) {
         const elapsed = Math.floor((Date.now() - savedTs) / 1000);
@@ -60,8 +67,8 @@ export function useTimer(totalSecondsOrOptions, storageKey, onExpire) {
 
   const persist = useCallback((secs) => {
     try {
-      localStorage.setItem(timerKey + LS_SECONDS_SUFFIX, String(secs));
-      localStorage.setItem(timerKey + LS_TIMESTAMP_SUFFIX, String(Date.now()));
+      sessionStorage.setItem(timerKey + LS_SECONDS_SUFFIX, String(secs));
+      sessionStorage.setItem(timerKey + LS_TIMESTAMP_SUFFIX, String(Date.now()));
     } catch (_) {}
   }, [timerKey]);
 
@@ -135,10 +142,10 @@ export function useTimer(totalSecondsOrOptions, storageKey, onExpire) {
   };
 }
 
-/** Call this after submission to wipe the timer from localStorage. */
+/** Call this after submission (or on Exit) to wipe the timer from sessionStorage. */
 export function clearTimerStorage(storageKey) {
   try {
-    localStorage.removeItem(storageKey + LS_SECONDS_SUFFIX);
-    localStorage.removeItem(storageKey + LS_TIMESTAMP_SUFFIX);
+    sessionStorage.removeItem(storageKey + LS_SECONDS_SUFFIX);
+    sessionStorage.removeItem(storageKey + LS_TIMESTAMP_SUFFIX);
   } catch (_) {}
 }

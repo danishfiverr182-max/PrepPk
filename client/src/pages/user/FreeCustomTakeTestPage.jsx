@@ -559,6 +559,13 @@ export default function FreeCustomTakeTestPage() {
         <div className="flex items-center gap-3">
           <Link
             to={`/test/free-custom/${testId}`}
+            onClick={() => {
+              // Deliberate exit — unlike a refresh or tab-switch, this
+              // should always restart at question 1 next time, so wipe
+              // the in-progress snapshot and timer right now.
+              clearTimerStorage(timerKeyRef.current);
+              clearTestProgress("freeCustom", testId, null);
+            }}
             className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 text-sm font-semibold transition"
           >
             <svg
@@ -657,7 +664,7 @@ export default function FreeCustomTakeTestPage() {
                 </div>
 
                 <div className="space-y-5">
-                  <h3 className="text-xl md:text-2xl font-bold leading-relaxed text-slate-800 dark:text-slate-100">
+                  <h3 className="text-lg md:text-xl font-bold leading-relaxed text-slate-800 dark:text-slate-100">
                     {currentMcq.question}
                   </h3>
 
