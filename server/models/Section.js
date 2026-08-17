@@ -13,6 +13,7 @@
  */
 
 import mongoose from "mongoose";
+import { cleanOptionsArray, cleanOptionLabelsDeep } from "../utils/optionLabelCleaner.js";
 
 const { Schema } = mongoose;
 
@@ -151,6 +152,27 @@ const sectionSchema = new Schema(
     timestamps: true,
   }
 );
+
+// ── Option-label cleanup ────────────────────────────────────────
+// The test UI renders its own A/B/C/D labels, so any "A) ", "B.", "C -",
+// "D:" style prefix baked into imported option text would show up
+// duplicated. Cleaning on save keeps newly-saved data tidy at rest, and
+// cleaning on every find/findOne (including .lean() queries, which most
+// read routes use) means MCQs imported/stored months ago under the old
+// format are shown correctly too, with no DB migration required.
+sectionSchema.pre("save", function () {
+  if (Array.isArray(this.mcqs)) {
+    this.mcqs.forEach((mcq) => {
+      if (Array.isArray(mcq.options)) {
+        mcq.options = cleanOptionsArray(mcq.options);
+      }
+    });
+  }
+});
+
+sectionSchema.post(/^find/, function (result) {
+  cleanOptionLabelsDeep(result);
+});
 
 // ── Indexes ───────────────────────────────────────────────────
 sectionSchema.index({ category: 1, type: 1 });

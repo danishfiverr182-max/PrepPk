@@ -6,27 +6,26 @@
  * Route:  /free-mock-tests  (inside UserLayout / PublicLayout)
  * Data:   GET /api/free-tests  (public, no auth)
  *
- * ── Redesign notes ────────────────────────────────────────────
- * As the number of categories and tests grows into the hundreds, a flat
- * page with every test expanded became an endless scroll, and there was
- * no way to jump straight to a category or know it even existed without
- * scrolling past everything above it.
+ * ── Redesign notes (2nd pass) ───────────────────────────────────
+ * The previous version paired a chip quick-jump menu with an accordion
+ * list right below it — both showing the same category names at once,
+ * plus a "which of these N sections is currently open" state to track.
+ * That doubled-up navigation was the main source of confusion.
  *
- * This version adds:
- *   1. A category quick-jump menu (chips) pinned near the top. Clicking a
- *      chip expands that one category and smooth-scrolls to it.
- *   2. Each category is now a collapsible accordion section (collapsed
- *      by default) instead of always-expanded — only one is open at a
- *      time, so the list stays short and scannable no matter how many
- *      categories or tests exist.
- *   3. A search box to filter the quick-jump menu by category name,
- *      for when there are far too many categories to scan visually.
+ * This version uses one navigation surface instead of two:
+ *   1. Browse — a single grid of category cards (name + free-test count).
+ *      A search box filters this grid directly.
+ *   2. Pick one — clicking a card swaps the grid for that category's test
+ *      list, with a "← All categories" link back to the grid.
+ * Only the selected category's tests are ever in the DOM, so this still
+ * scales to hundreds of categories without turning into a long scroll —
+ * without needing an accordion to hide the others.
  *
  * Data fetching (fetchGroups / fetchCustomGroups) is unchanged from the
  * previous version — this is a presentation-layer change only.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../../api/axios";
 import SeoHead from "../../components/SeoHead";
 import { useSeoMeta } from "../../hooks/useSeoMeta";
@@ -34,106 +33,36 @@ import { usePublicCategories } from "../context/PublicCategoriesContext";
 import FreeTestCard from "../components/FreeTestCard";
 import FreeCustomTestCard from "../components/FreeCustomTestCard";
 
-// ── Skeleton loader ───────────────────────────────────────────
-function CategorySkeleton() {
-  return (
-    <div className="mb-4">
-      <div className="h-14 bg-bg dark:bg-dark-bg rounded-xl animate-pulse" />
-    </div>
-  );
+// ── Skeletons ────────────────────────────────────────────────
+function CategoryCardSkeleton() {
+  return <div className="h-20 rounded-xl bg-bg dark:bg-dark-bg animate-pulse" />;
 }
 
-// ── Chevron icon (rotates when expanded) ───────────────────────
-function ChevronIcon({ open }) {
-  return (
-    <svg
-      className={`w-4 h-4 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
-}
-
-// ── Accordion header shared by both group types ───────────────
-function GroupHeader({ dotClassName, name, count, open, onToggle }) {
+// ── Category card (the grid) ────────────────────────────────────
+function CategoryCard({ name, count, dotClassName, onClick }) {
   return (
     <button
       type="button"
-      onClick={onToggle}
-      className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-bg/60 dark:hover:bg-dark-bg/40 transition-colors rounded-xl"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-5 py-4 bg-surface dark:bg-dark-surface border border-border dark:border-dark-border rounded-xl text-left hover:border-brand hover:shadow-md transition-all"
     >
-      <span className={`w-1 h-5 rounded-full shrink-0 ${dotClassName}`} />
-      <span className="text-base font-bold text-txt-primary dark:text-slate-100 flex-1 min-w-0 truncate">
-        {name}
+      <span className={`w-2 h-2 rounded-full shrink-0 ${dotClassName}`} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-bold text-txt-primary dark:text-slate-100 truncate">
+          {name}
+        </span>
+        <span className="block text-xs text-txt-muted dark:text-slate-500 mt-0.5">
+          {count} free {count === 1 ? "test" : "tests"}
+        </span>
       </span>
-      <span className="text-xs text-txt-muted dark:text-slate-500 font-medium shrink-0">
-        {count} {count === 1 ? "test" : "tests"}
-      </span>
-      <ChevronIcon open={open} />
+      <svg className="w-4 h-4 text-txt-muted dark:text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
     </button>
   );
 }
 
-// ── Category group (default categories — 3-section tests) ──────
-function CategoryGroup({ categoryName, tests, open, onToggle, sectionRef }) {
-  return (
-    <section
-      ref={sectionRef}
-      className="mb-3 bg-surface dark:bg-dark-surface border border-border dark:border-dark-border rounded-xl scroll-mt-24 overflow-hidden"
-    >
-      <GroupHeader
-        dotClassName="bg-accent"
-        name={categoryName}
-        count={tests.length}
-        open={open}
-        onToggle={onToggle}
-      />
-      {open && (
-        <div className="px-5 pb-5 space-y-3">
-          {tests.map((test) => (
-            <FreeTestCard key={test._id} test={test} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ── Category group (custom categories — single-section group tests) ──
-function CustomCategoryGroup({ categoryName, categorySlug, tests, open, onToggle, sectionRef }) {
-  return (
-    <section
-      ref={sectionRef}
-      className="mb-3 bg-surface dark:bg-dark-surface border border-border dark:border-dark-border rounded-xl scroll-mt-24 overflow-hidden"
-    >
-      <GroupHeader
-        dotClassName="bg-success"
-        name={categoryName}
-        count={tests.length}
-        open={open}
-        onToggle={onToggle}
-      />
-      {open && (
-        <div className="px-5 pb-5 space-y-3">
-          <a
-            href={`/category/${categorySlug}`}
-            className="inline-block text-xs font-semibold text-success hover:underline mb-1"
-          >
-            View full category →
-          </a>
-          {tests.map((test) => (
-            <FreeCustomTestCard key={test.id} test={test} />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ── Empty state ───────────────────────────────────────────────
+// ── Empty state (no tests published anywhere yet) ───────────────
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center px-4">
@@ -169,12 +98,10 @@ export default function FreeMockTestsPage() {
   const [customGroups, setCustomGroups]   = useState([]);
   const [customLoading, setCustomLoading] = useState(true);
 
-  // ── Accordion + quick-jump state ──────────────────────────────
-  // expandedKey identifies the single open section, e.g. "default:pak-army"
-  // or "custom:some-slug". null means everything is collapsed.
-  const [expandedKey, setExpandedKey] = useState(null);
+  // Which single category (if any) is currently open. null = showing the
+  // browse grid. This is the only piece of navigation state on the page.
+  const [selectedKey, setSelectedKey] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const sectionRefs = useRef({});
 
   function fetchGroups() {
     setLoading(true);
@@ -242,48 +169,55 @@ export default function FreeMockTestsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoriesLoading]);
 
-  const totalTests = groups.reduce((sum, g) => sum + g.tests.length, 0);
-  const totalCustomTests = customGroups.reduce((sum, g) => sum + g.tests.length, 0);
-  const grandTotalTests = totalTests + totalCustomTests;
-  const grandTotalCategories = groups.length + customGroups.length;
-
-  // ── Combined chip list for the quick-jump menu ─────────────────
-  const allChips = useMemo(() => {
-    const defaultChips = groups.map((g) => ({
+  // ── One combined, alphabetised list of categories ───────────────
+  // Sorted by name (rather than default-first-then-custom) so the grid
+  // reads like a single scannable directory instead of two stacked lists —
+  // the "default vs custom" split is an internal admin distinction, not
+  // something a visitor needs to reason about.
+  const allGroups = useMemo(() => {
+    const d = groups.map((g) => ({
       key: `default:${g.categorySlug}`,
-      name: g.categoryName,
-      count: g.tests.length,
-      dotClassName: "bg-accent",
+      categorySlug: g.categorySlug,
+      categoryName: g.categoryName,
+      tests: g.tests,
+      kind: "default",
     }));
-    const customChips = customGroups.map((g) => ({
+    const c = customGroups.map((g) => ({
       key: `custom:${g.categorySlug}`,
-      name: g.categoryName,
-      count: g.tests.length,
-      dotClassName: "bg-success",
+      categorySlug: g.categorySlug,
+      categoryName: g.categoryName,
+      tests: g.tests,
+      kind: "custom",
     }));
-    return [...defaultChips, ...customChips];
+    return [...d, ...c].sort((a, b) => a.categoryName.localeCompare(b.categoryName));
   }, [groups, customGroups]);
 
-  const filteredChips = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return allChips;
-    return allChips.filter((c) => c.name.toLowerCase().includes(q));
-  }, [allChips, searchQuery]);
+  const totalTests = useMemo(
+    () => allGroups.reduce((sum, g) => sum + g.tests.length, 0),
+    [allGroups]
+  );
 
-  function handleChipClick(key) {
-    setExpandedKey(key);
-    // Wait for the section to render open before scrolling to it
-    requestAnimationFrame(() => {
-      sectionRefs.current[key]?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+  const filteredGroups = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allGroups;
+    return allGroups.filter((g) => g.categoryName.toLowerCase().includes(q));
+  }, [allGroups, searchQuery]);
+
+  const selectedGroup = allGroups.find((g) => g.key === selectedKey) || null;
+
+  function openCategory(key) {
+    setSelectedKey(key);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function toggleSection(key) {
-    setExpandedKey((prev) => (prev === key ? null : key));
+  function backToCategories() {
+    setSelectedKey(null);
   }
 
   // ── SEO ──────────────────────────────────────────────────────
   const { title, description, jsonLd } = useSeoMeta("free-tests");
+
+  const isLoading = loading || customLoading;
 
   return (
     <>
@@ -311,12 +245,13 @@ export default function FreeMockTestsPage() {
         </div>
 
         {/* Loading */}
-        {(loading || customLoading) && (
-          <>
-            <CategorySkeleton />
-            <CategorySkeleton />
-            <CategorySkeleton />
-          </>
+        {isLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <CategoryCardSkeleton />
+            <CategoryCardSkeleton />
+            <CategoryCardSkeleton />
+            <CategoryCardSkeleton />
+          </div>
         )}
 
         {/* Error (default-category fetch only — custom groups fail silently) */}
@@ -336,22 +271,60 @@ export default function FreeMockTestsPage() {
         )}
 
         {/* Empty */}
-        {!loading && !customLoading && !error && grandTotalCategories === 0 && <EmptyState />}
+        {!isLoading && !error && allGroups.length === 0 && <EmptyState />}
 
-        {/* Quick-jump menu + accordion list */}
-        {!loading && !customLoading && !error && grandTotalCategories > 0 && (
+        {/* ═══════════════ Detail view: one category's tests ═══════════════ */}
+        {!isLoading && !error && selectedGroup && (
           <>
-            {/* Summary pill */}
-            <div className="mb-4 flex items-center gap-2 text-xs text-txt-secondary dark:text-slate-300">
-              <span className="font-semibold text-txt-primary dark:text-slate-100">{grandTotalTests}</span>
-              {grandTotalTests === 1 ? "free test" : "free tests"} across{" "}
-              <span className="font-semibold text-txt-primary dark:text-slate-100">{grandTotalCategories}</span>{" "}
-              {grandTotalCategories === 1 ? "category" : "categories"}
+            <button
+              type="button"
+              onClick={backToCategories}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand dark:text-blue-400 hover:underline mb-4"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              All categories
+            </button>
+
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-bold text-txt-primary dark:text-slate-100">
+                {selectedGroup.categoryName}
+              </h2>
+              <a
+                href={`/category/${selectedGroup.categorySlug}`}
+                className="text-xs font-semibold text-brand dark:text-blue-400 hover:underline shrink-0"
+              >
+                View full category →
+              </a>
             </div>
 
-            {/* Search box — only worth showing once there's enough to search through */}
-            {allChips.length > 6 && (
-              <div className="relative mb-3">
+            <div className="space-y-3">
+              {selectedGroup.tests.map((test) =>
+                selectedGroup.kind === "default" ? (
+                  <FreeTestCard key={test._id} test={test} />
+                ) : (
+                  <FreeCustomTestCard key={test.id} test={test} />
+                )
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ═══════════════ Browse view: all categories ═══════════════ */}
+        {!isLoading && !error && !selectedGroup && allGroups.length > 0 && (
+          <>
+            {/* Summary line */}
+            <div className="mb-4 text-xs text-txt-secondary dark:text-slate-300">
+              <span className="font-semibold text-txt-primary dark:text-slate-100">{totalTests}</span>{" "}
+              {totalTests === 1 ? "free test" : "free tests"} across{" "}
+              <span className="font-semibold text-txt-primary dark:text-slate-100">{allGroups.length}</span>{" "}
+              {allGroups.length === 1 ? "category" : "categories"}
+            </div>
+
+            {/* Search — only worth showing once there's enough to search through */}
+            {allGroups.length > 6 && (
+              <div className="relative mb-4">
                 <svg
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-txt-muted dark:text-slate-500"
                   fill="none"
@@ -369,72 +342,28 @@ export default function FreeMockTestsPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search a category…"
+                  placeholder="Search for your exam…"
                   className="w-full pl-10 pr-4 py-2.5 text-sm bg-surface dark:bg-dark-surface border border-border dark:border-dark-border rounded-lg text-txt-primary dark:text-slate-100 placeholder:text-txt-muted dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand"
                 />
               </div>
             )}
 
-            {/* Quick-jump chip menu */}
-            <div className="mb-6">
-              {filteredChips.length === 0 ? (
-                <NoMatches query={searchQuery} />
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {filteredChips.map((chip) => {
-                    const isActive = expandedKey === chip.key;
-                    return (
-                      <button
-                        key={chip.key}
-                        type="button"
-                        onClick={() => handleChipClick(chip.key)}
-                        className={`inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-full border transition-colors ${
-                          isActive
-                            ? "bg-brand text-white border-brand"
-                            : "bg-surface dark:bg-dark-surface text-txt-primary dark:text-slate-100 border-border dark:border-dark-border hover:border-brand hover:text-brand"
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : chip.dotClassName}`} />
-                        {chip.name}
-                        <span className={isActive ? "text-white/75" : "text-txt-muted dark:text-slate-500"}>
-                          {chip.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Accordion sections */}
-            {groups.map((group) => {
-              const key = `default:${group.categorySlug}`;
-              return (
-                <CategoryGroup
-                  key={key}
-                  categoryName={group.categoryName}
-                  tests={group.tests}
-                  open={expandedKey === key}
-                  onToggle={() => toggleSection(key)}
-                  sectionRef={(el) => { sectionRefs.current[key] = el; }}
-                />
-              );
-            })}
-
-            {customGroups.map((group) => {
-              const key = `custom:${group.categorySlug}`;
-              return (
-                <CustomCategoryGroup
-                  key={key}
-                  categoryName={group.categoryName}
-                  categorySlug={group.categorySlug}
-                  tests={group.tests}
-                  open={expandedKey === key}
-                  onToggle={() => toggleSection(key)}
-                  sectionRef={(el) => { sectionRefs.current[key] = el; }}
-                />
-              );
-            })}
+            {/* Category grid — the single navigation surface on this page */}
+            {filteredGroups.length === 0 ? (
+              <NoMatches query={searchQuery} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {filteredGroups.map((group) => (
+                  <CategoryCard
+                    key={group.key}
+                    name={group.categoryName}
+                    count={group.tests.length}
+                    dotClassName={group.kind === "default" ? "bg-accent" : "bg-success"}
+                    onClick={() => openCategory(group.key)}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

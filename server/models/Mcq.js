@@ -21,6 +21,7 @@
  */
 
 import mongoose from "mongoose";
+import { cleanOptionsArray, cleanOptionLabelsDeep } from "../utils/optionLabelCleaner.js";
 
 const { Schema, model } = mongoose;
 
@@ -79,6 +80,21 @@ const mcqSchema = new Schema(
 
 // Fast ordered pagination: fetch all MCQs for a test, in order.
 mcqSchema.index({ testId: 1, order: 1 });
+
+// ── Option-label cleanup ────────────────────────────────────────
+// Same rationale as Section.js / FreeMockSection.js: the UI renders its
+// own A/B/C/D labels, so strip any "A) "/"B."/"C -"/"D:" prefix baked into
+// imported option text — on save (new/edited MCQs) and on every read,
+// including .lean() queries (existing MCQs imported months ago).
+mcqSchema.pre("save", function () {
+  if (Array.isArray(this.options)) {
+    this.options = cleanOptionsArray(this.options);
+  }
+});
+
+mcqSchema.post(/^find/, function (result) {
+  cleanOptionLabelsDeep(result);
+});
 
 const Mcq = model("Mcq", mcqSchema);
 export default Mcq;

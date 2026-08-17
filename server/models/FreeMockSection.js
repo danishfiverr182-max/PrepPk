@@ -12,6 +12,7 @@
  */
 
 import mongoose from "mongoose";
+import { cleanOptionsArray, cleanOptionLabelsDeep } from "../utils/optionLabelCleaner.js";
 
 const { Schema, model } = mongoose;
 
@@ -91,6 +92,24 @@ const freeMockSectionSchema = new Schema(
 // must now be synchronous (just return) or async (return a Promise).
 freeMockSectionSchema.pre("save", function () {
   this.isShared = false;
+
+  // Strip any "A) "/"B."/"C -"/"D:" style label baked into imported option
+  // text — the UI already renders its own A/B/C/D labels. See
+  // utils/optionLabelCleaner.js for details.
+  if (Array.isArray(this.mcqs)) {
+    this.mcqs.forEach((mcq) => {
+      if (Array.isArray(mcq.options)) {
+        mcq.options = cleanOptionsArray(mcq.options);
+      }
+    });
+  }
+});
+
+// Also clean on every read (including .lean() queries, which most read
+// routes use), so sections saved months ago under the old format display
+// correctly without needing a DB migration.
+freeMockSectionSchema.post(/^find/, function (result) {
+  cleanOptionLabelsDeep(result);
 });
 
 export default model("FreeMockSection", freeMockSectionSchema);

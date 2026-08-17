@@ -31,13 +31,13 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
-import { setCached } from "../../utils/pageDataCache";
+import { getCached, setCached } from "../../utils/pageDataCache";
 import { useParams, useOutletContext, Link } from "react-router-dom";
 import SeoHead from "../../components/SeoHead";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/axios";
 import CategoryLockMessage from "../../public/components/CategoryLockMessage";
-import CustomCategoryLayout from "../../components/user/CustomCategoryLayout";
+import CustomCategoryLayout, { CustomCategoryLayoutSkeleton } from "../../components/user/CustomCategoryLayout";
 import AboutSection from "../../components/user/AboutSection";
 
 const SITE_NAME = "PrepPK";
@@ -168,6 +168,17 @@ export default function CategoryPage() {
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState(null);
 
+  // Whether we already know this category's type from a previous visit
+  // this tab session (set below, after the first successful fetch). Used
+  // only to pick the right-shaped loading skeleton before this fetch
+  // resolves — never trusted for anything else.
+  const cachedCategoryInfo = getCached(`category:${slug}`);
+  // No cache yet (first visit this session) -> guess "custom", since that's
+  // the newer layout and the one most categories use now. A wrong guess
+  // just means the old default-category list flashes in afterward, same as
+  // before this fix; a cached guess (repeat visit) is always correct.
+  const probablyCustom = cachedCategoryInfo ? cachedCategoryInfo.isDefault === false : true;
+
   const isLoggedIn = !!premiumUser;
 
   // New access rule: any logged-in, non-expired premium user has full access.
@@ -249,7 +260,10 @@ export default function CategoryPage() {
         // Share the category name with anything else on this page that
         // needs it (currently: useChatContext), so it doesn't independently
         // re-fetch the same /tests/category/:slug endpoint.
-        setCached(`category:${slug}`, { categoryName: data.category?.name || null });
+        setCached(`category:${slug}`, {
+          categoryName: data.category?.name || null,
+          isDefault: data.category?.isDefault !== false,
+        });
       })
       .catch((err) => {
         const msg =
@@ -297,6 +311,24 @@ export default function CategoryPage() {
       <div className="inline-flex items-center gap-1.5 mt-3 text-xs font-semibold px-3 py-1 rounded-full border bg-success-light dark:bg-green-900/30 text-green-700 dark:text-green-300 border-success/30 dark:border-green-700/30">
         ✓ Full Access
       </div>
+    );
+  }
+
+  // ── Still loading, and it's probably a custom category: show the
+  // matching hero/two-column skeleton instead of the old single-column
+  // list one, so there's no visual jump once CustomCategoryLayout mounts.
+  if (loading && probablyCustom) {
+    return (
+      <>
+        <SeoHead
+          title={pageTitle}
+          description={pageDescription}
+          url={canonicalUrl}
+          ogType="website"
+          jsonLd={[breadcrumbSchema]}
+        />
+        <CustomCategoryLayoutSkeleton categoryName={cachedCategoryInfo?.categoryName} />
+      </>
     );
   }
 

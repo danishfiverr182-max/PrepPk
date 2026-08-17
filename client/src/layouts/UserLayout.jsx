@@ -98,22 +98,33 @@ export default function UserLayout() {
   // the test itself isn't fighting for space — the category menu stays
   // (promoted to the top bar) so the user can still navigate away or bail
   // out mid-test without feeling stuck.
-  // The main premium test engine (TakeTestPage) uses a fixed, full-viewport
-  // immersive layout. The other three test-taking pages (custom, free-custom,
-  // free-mock) manage their own natural page scroll, so they only need the
-  // nav/footer chrome hidden — not the fixed-height treatment.
+  // All four test-taking pages (premium, free-mock, custom, free-custom) use
+  // the same fixed, full-viewport immersive layout: a scrollable question
+  // area with the Prev/Next/Submit bar pinned in a non-scrolling footer
+  // below it. That pinning only works if this layout gives them a bounded
+  // height to pin against — without it the footer just sits in normal flow
+  // after the question content and the whole page has to be scrolled to
+  // reach it (which is exactly the bug this regex fixes).
   const isImmersiveTestRoute =
     /^\/test\/[^/]+\/section\/[^/]+$/.test(location.pathname) ||
-    /^\/free-tests\/[^/]+\/section\/[^/]+$/.test(location.pathname);
-  const isTestTakingRoute =
-    isImmersiveTestRoute ||
+    /^\/free-tests\/[^/]+\/section\/[^/]+$/.test(location.pathname) ||
     /^\/test\/custom\/[^/]+\/take$/.test(location.pathname) ||
     /^\/test\/free-custom\/[^/]+\/take$/.test(location.pathname);
+  const isTestTakingRoute = isImmersiveTestRoute;
 
   return (
     <div
       className={`flex flex-col text-slate-900 dark:text-white ${
-        isImmersiveTestRoute ? "h-screen overflow-hidden" : "min-h-screen"
+        // `h-dvh` (dynamic viewport height) instead of `h-screen` (100vh):
+        // on mobile browsers, 100vh is measured against the *largest*
+        // possible viewport (address bar hidden), so as soon as the address
+        // bar is visible, a fixed h-screen box is taller than what's
+        // actually visible and the bottom of the test UI (nav buttons,
+        // submit button) gets pushed under the browser chrome / is
+        // unreachable without an extra, confusing scroll. dvh tracks the
+        // *current* visible viewport instead. Falls back gracefully to
+        // h-screen on older browsers that don't support dvh.
+        isImmersiveTestRoute ? "h-screen h-dvh overflow-hidden" : "min-h-screen"
       }`}
       style={{ background: "var(--bg-layout)" }}
     >

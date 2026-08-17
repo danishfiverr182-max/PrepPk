@@ -37,6 +37,22 @@
 const LETTER_TO_INDEX = { a: 0, b: 1, c: 2, d: 3 };
 const INDEX_TO_LETTER = ["A", "B", "C", "D"];
 
+// The website's test UI already renders its own styled A/B/C/D option
+// labels. Some source JSON bakes the same label into the option text
+// itself (e.g. "A) 1793"), which would otherwise show up duplicated
+// ("A" followed by "A) 1793"). Strip only a genuine leading label — the
+// letter must be at the very start of the string, immediately (allowing
+// whitespace) followed by one of the common label delimiters `)` `.` `-`
+// `:`. Text like "The answer is A) because..." is left untouched since
+// the letter isn't at the start of the string.
+const OPTION_LABEL_PREFIX = /^\s*[A-Da-d]\s*[).:-]\s*/;
+
+/** Strips a leading "A)"/"B."/"C -"/"D:" style label, if present. */
+function stripOptionLabelPrefix(text) {
+  if (typeof text !== "string") return text;
+  return text.replace(OPTION_LABEL_PREFIX, "").trim();
+}
+
 // ── Low-level helpers ──────────────────────────────────────────
 
 function extractRawList(parsedJson) {
@@ -52,7 +68,7 @@ function validateOptions(raw, position) {
   if (!Array.isArray(options) || options.length !== 4) {
     throw new Error(`Question ${position}: "options" must be an array of exactly 4 answers.`);
   }
-  const cleaned = options.map((o) => (o == null ? "" : String(o).trim()));
+  const cleaned = options.map((o) => stripOptionLabelPrefix(o == null ? "" : String(o).trim()));
   if (cleaned.some((o) => o.length === 0)) {
     throw new Error(`Question ${position}: all 4 options must be non-empty.`);
   }
@@ -83,8 +99,14 @@ function resolveCorrectIndex(raw, options, position) {
       return LETTER_TO_INDEX[lower];
     }
 
-    // Fallback: the full option text was given instead of a letter
-    const matchIndex = options.findIndex((opt) => opt.toLowerCase() === lower);
+    // Fallback: the full option text was given instead of a letter. Options
+    // have already had any "A) "-style label stripped by this point, so
+    // strip the same label from the candidate text before comparing —
+    // this only affects matching, never the stored correctAnswer value.
+    const strippedLower = stripOptionLabelPrefix(trimmed).toLowerCase();
+    const matchIndex = options.findIndex(
+      (opt) => opt.toLowerCase() === lower || opt.toLowerCase() === strippedLower
+    );
     if (matchIndex !== -1) return matchIndex;
 
     throw new Error(

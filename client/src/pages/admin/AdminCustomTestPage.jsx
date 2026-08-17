@@ -231,14 +231,51 @@ function isMcqComplete(mcq) {
   return mcq.options.every((o) => o && o.trim());
 }
 
-function McqCard({ index, mcq, onChange, onDelete, disabled, statusBadge }) {
+// Small inline indicator shown next to an MCQ that's mid-edit, so autosave
+// is visible instead of silent. "saved" auto-clears itself after a couple
+// seconds (see savePatchedMcq), so it reads as a brief confirmation flash
+// rather than a permanent label.
+function EditStatusBadge({ status }) {
+  if (status === "pending" || status === "saving") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-txt-muted">
+        <Spinner /> Saving…
+      </span>
+    );
+  }
+  if (status === "saved") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-success">
+        ✓ Saved
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span className="text-[10px] font-bold uppercase tracking-wide text-danger">
+        Save failed
+      </span>
+    );
+  }
+  return null;
+}
+
+// `disabled` locks the question/option fields (used for MCQs that haven't
+// been saved to the server yet — there's nothing to edit). `canDelete`
+// controls the Remove button separately: once a test is published, editing
+// existing MCQs (e.g. fixing a typo) stays allowed since it doesn't change
+// how many MCQs the test has, but deleting is blocked because it would
+// shrink mcqCount below what the published test's blueprint/generation
+// already expects.
+function McqCard({ index, mcq, onChange, onDelete, disabled, canDelete = !disabled, statusBadge, editStatus }) {
   return (
     <div className="bg-surface border border-border rounded-xl p-4 mb-3 shadow-sm">
       <div className="flex items-center justify-between mb-2">
         <p className="text-txt-muted text-sm">MCQ {index + 1}</p>
         <div className="flex items-center gap-3">
           {statusBadge}
-          {!disabled && (
+          <EditStatusBadge status={editStatus} />
+          {canDelete && (
             <button
               type="button"
               onClick={() => onDelete(index)}
@@ -375,6 +412,11 @@ const McqPhase = forwardRef(function McqPhase(
     setMcqs((prev) => [...prev, ...Array(toAdd).fill(null).map(blankMcq)]);
   }
 
+  // index → "pending" | "saving" | "saved" | "error", purely for the small
+  // status indicator next to each MCQ so an edit's autosave is visible
+  // instead of silent (it previously only surfaced a toast on failure).
+  const [editStatus, setEditStatus] = useState({});
+
   // ── Editing ────────────────────────────────────────────────
   const handleChange = useCallback((index, field, value) => {
     setMcqs((prev) => {
@@ -386,6 +428,7 @@ const McqPhase = forwardRef(function McqPhase(
     // If this MCQ was already autosaved, don't wait for the next bulk
     // autosave tick — debounce a single-MCQ PATCH instead.
     if (index < stateRef.current.lastSavedIndex) {
+      setEditStatus((s) => ({ ...s, [index]: "pending" }));
       if (editTimersRef.current[index]) clearTimeout(editTimersRef.current[index]);
       editTimersRef.current[index] = setTimeout(() => {
         delete editTimersRef.current[index];
@@ -399,13 +442,19 @@ const McqPhase = forwardRef(function McqPhase(
     const mcq = currentMcqs[index];
     if (!mcq || !mcq._id) return; // not actually persisted yet — skip silently
     if (!isMcqComplete(mcq)) return; // don't push a half-edited MCQ
+    setEditStatus((s) => ({ ...s, [index]: "saving" }));
     try {
       await api.patch(`/custom-tests/${testId}/mcqs/${mcq._id}`, {
         question: mcq.question,
         options: mcq.options,
         correctOption: mcq.correctOption,
       });
+      setEditStatus((s) => ({ ...s, [index]: "saved" }));
+      setTimeout(() => {
+        setEditStatus((s) => (s[index] === "saved" ? { ...s, [index]: undefined } : s));
+      }, 2000);
     } catch (err) {
+      setEditStatus((s) => ({ ...s, [index]: "error" }));
       toast.error(err.response?.data?.message || "Failed to save your edit.");
     }
   }
@@ -729,6 +778,13 @@ const McqPhase = forwardRef(function McqPhase(
             </span>
           )}
         </p>
+        {isPublished && (
+          <p className="text-xs text-txt-muted mb-1">
+            This test is live. You can still fix a question, option, or correct
+            answer below — edits save automatically a few seconds after you stop
+            typing. Adding or removing MCQs is locked once published.
+          </p>
+        )}
         <div className="flex items-center gap-3">
           <div className="flex-1 bg-bg rounded-full h-2 overflow-hidden">
             <div
@@ -827,7 +883,9 @@ const McqPhase = forwardRef(function McqPhase(
                     mcq={mcq}
                     onChange={handleChange}
                     onDelete={handleDelete}
-                    disabled={isPublished}
+                    disabled={false}
+                    canDelete={!isPublished}
+                    editStatus={editStatus[index]}
                     statusBadge={
                       saved ? (
                         <span className="text-[10px] font-bold uppercase tracking-wide text-success">

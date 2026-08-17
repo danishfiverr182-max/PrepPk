@@ -1,5 +1,5 @@
-import { createBrowserRouter, RouterProvider, Outlet } from "react-router-dom";
-import { lazy, Suspense } from "react";
+import { createBrowserRouter, RouterProvider, Outlet, useLocation } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -123,6 +123,22 @@ function PageLoadingFallback() {
   );
 }
 
+// ── Scroll-to-top on route change ──────────────────────────────────
+// createBrowserRouter/RouterProvider does NOT auto-scroll on navigation
+// (that's a plain-<BrowserRouter> browser default, not something the data
+// router replicates). Without this, navigating from the homepage to a
+// category/test/page while scrolled down keeps that same scroll offset,
+// so the new page renders starting mid-way down instead of at the top.
+// Scoped to `pathname` only (not search/hash) so hash-anchor navigation
+// and query-param updates on the same page aren't yanked back to top.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 // ── Root wrapper providers that need to be inside the data router ──
 function RootProviders() {
   const { theme } = useTheme();
@@ -146,6 +162,7 @@ function RootProviders() {
               error: { duration: 4000 },
             }}
           />
+          <ScrollToTop />
           <Suspense fallback={<PageLoadingFallback />}>
             <Outlet />
           </Suspense>

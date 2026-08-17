@@ -224,6 +224,61 @@ function GridSkeleton() {
   );
 }
 
+// ── Full-shell skeleton ──────────────────────────────────────────
+// Mirrors this component's actual hero + search/sort + two-column shape.
+// CategoryPage.jsx renders this while it's still figuring out whether a
+// category is "default" or "custom", so the loading state matches whichever
+// layout is about to appear instead of flashing the old single-column list
+// design before swapping to this one.
+export function CustomCategoryLayoutSkeleton({ categoryName }) {
+  return (
+    <div className="max-w-7xl mx-auto px-4 md:px-8 py-10 dark:bg-dark-bg">
+      {/* Hero */}
+      <div className="relative mb-10">
+        <div className="flex flex-col md:flex-row items-center md:items-stretch justify-center gap-4 md:gap-0 text-center">
+          <div className="md:flex-1 md:flex md:items-center md:justify-end md:pr-6">
+            <div className="h-9 w-28 rounded-2xl bg-bg dark:bg-dark-surface2 animate-pulse" />
+          </div>
+          <div className="md:px-8">
+            <div className="h-3 w-32 mx-auto rounded bg-bg dark:bg-dark-surface2 animate-pulse mb-3" />
+            {categoryName ? (
+              <h1 className="font-heading text-3xl md:text-4xl font-extrabold tracking-tight text-txt-primary dark:text-white">
+                {categoryName}
+              </h1>
+            ) : (
+              <div className="h-8 w-56 mx-auto rounded bg-bg dark:bg-dark-surface2 animate-pulse" />
+            )}
+            <div className="mx-auto mt-3 h-1 w-16 rounded-full bg-gradient-to-r from-accent via-brand to-success" />
+          </div>
+          <div className="md:flex-1 md:flex md:items-center md:justify-start md:pl-6">
+            <div className="h-9 w-24 rounded-2xl bg-bg dark:bg-dark-surface2 animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* Search + sort */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-8">
+        <div className="flex-1 h-10 rounded-xl bg-bg dark:bg-dark-surface2 animate-pulse" />
+        <div className="h-10 w-32 rounded-xl bg-bg dark:bg-dark-surface2 animate-pulse shrink-0" />
+      </div>
+
+      {/* Two columns */}
+      <div className="flex flex-col md:flex-row gap-8 md:gap-0">
+        <div className="md:pr-8 flex-1 min-w-0 space-y-5">
+          <ChipSkeleton />
+          <GridSkeleton />
+        </div>
+        <div className="hidden md:block w-px bg-border dark:bg-dark-border" />
+        <div className="md:hidden h-px bg-border dark:bg-dark-border" />
+        <div className="md:pl-8 flex-1 min-w-0 space-y-5">
+          <ChipSkeleton />
+          <GridSkeleton />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Glass subgroup chip rail ────────────────────────────────────
 function SubgroupRail({ items, activeId, onSelect, theme, catSlug }) {
   const activeGradient = theme === "premium"

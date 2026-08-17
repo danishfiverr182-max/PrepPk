@@ -182,7 +182,7 @@ export default function FreeCustomTestHubPage() {
             subjects it covers, without needing to click "Start Test" first
             and see it only in the confirmation popup. */}
         <div className="lg:col-span-5">
-          <div className="bg-white dark:bg-dark-surface rounded-2xl border border-gray-200 dark:border-dark-border shadow-sm p-6 mt-10 lg:sticky lg:top-6">
+          <div className="bg-white dark:bg-dark-surface rounded-2xl border border-gray-200 dark:border-dark-border shadow-sm p-6 mt-2 lg:sticky lg:top-6">
             <h2 className="text-sm font-bold uppercase tracking-widest text-gray-800 dark:text-slate-100 mb-1">
               Subject Breakdown
             </h2>

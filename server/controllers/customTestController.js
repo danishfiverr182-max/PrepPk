@@ -31,6 +31,7 @@ import Category from "../models/Category.js";
 import Mcq from "../models/Mcq.js";
 import { sanitiseSubjectBreakdown } from "../utils/subjectBreakdown.js";
 import { createWithNextTestNumber } from "../utils/nextTestNumber.js";
+import { cleanOptionsArray } from "../utils/optionLabelCleaner.js";
 
 // ── POST /api/test-groups/:groupId/tests ─────────────────────
 // Admin only. Creates a new test inside the given group.
@@ -436,7 +437,7 @@ export async function addMcqsBatch(req, res) {
       testId,
       testModel: "Test",
       question: mcq.question.trim(),
-      options: mcq.options.map((o) => o.trim()),
+      options: cleanOptionsArray(mcq.options.map((o) => o.trim())),
       correctOption: mcq.correctOption,
       order: startOrder + i,
     }));
@@ -489,7 +490,7 @@ export async function updateMcq(req, res) {
       {
         $set: {
           question: question.trim(),
-          options: options.map((o) => o.trim()),
+          options: cleanOptionsArray(options.map((o) => o.trim())),
           correctOption,
         },
       },
