@@ -39,6 +39,7 @@ import api from "../../api/axios";
 import CategoryLockMessage from "../../public/components/CategoryLockMessage";
 import CustomCategoryLayout, { CustomCategoryLayoutSkeleton } from "../../components/user/CustomCategoryLayout";
 import AboutSection from "../../components/user/AboutSection";
+import useTrackVisit from "../../hooks/useTrackVisit";
 
 const SITE_NAME = "PrepPK";
 const BASE_URL  = import.meta.env.VITE_PUBLIC_URL || "https://www.prepkp.com";
@@ -189,6 +190,15 @@ export default function CategoryPage() {
   const displayName =
     catName ||
     slug.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+  // Feeds the admin dashboard's Visitor Stats panel. Fires once the
+  // category has actually resolved (not on a failed/loading fetch) so we
+  // log a real category name rather than the slug-derived fallback.
+  useTrackVisit(
+    { type: "category", categorySlug: slug, categoryName: displayName },
+    [slug],
+    !loading && !error
+  );
 
   // ── SEO values: use admin-set values or auto-generate ────────
   const pageTitle =

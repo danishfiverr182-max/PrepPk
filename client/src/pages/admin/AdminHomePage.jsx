@@ -19,6 +19,7 @@ import AddCategoryDropdown from "../../components/admin/AddCategoryDropdown";
 import DeleteCategoryDialog from "../../components/admin/DeleteCategoryDialog";
 import { useAdminCategories } from "../../context/CategoriesContext";
 import ExpiryWarningBanner from "../../components/admin/ExpiryWarningBanner";
+import VisitorStatsSection from "../../components/admin/VisitorStatsSection";
 
 // ── Icons ─────────────────────────────────────────────────────
 function CategoriesIcon() {
@@ -303,9 +304,11 @@ export default function AdminHomePage() {
         )}
       </div>
 
+      {/* ── Visitor Stats ─────────────────────────────────────── */}
+      <VisitorStatsSection />
+
       {/* ── Category Management Area ────────────────────────── */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
+      <div>        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-semibold text-txt-muted uppercase tracking-widest">
             Category Management
           </h2>

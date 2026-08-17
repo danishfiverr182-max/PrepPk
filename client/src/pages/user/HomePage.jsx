@@ -10,12 +10,16 @@ import TestimonialsSection from "../../public/components/TestimonialsSection";
 import WhyPremiumSection from "../../public/components/WhyPremiumSection";
 import SeoHead from "../../components/SeoHead";
 import { useSeoMeta } from "../../hooks/useSeoMeta";
+import useTrackVisit from "../../hooks/useTrackVisit";
 
 export default function HomePage() {
   const { premiumUser } = useAuth();
   const { openPremiumPopup } = useOutletContext();
 
   const { title, description, jsonLd } = useSeoMeta("home");
+
+  // Feeds the admin dashboard's Visitor Stats panel.
+  useTrackVisit({ type: "home" }, []);
 
   function handleLockedClick(category) {
     const intent = { pathname: `/category/${category.slug}` };

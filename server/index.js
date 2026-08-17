@@ -30,6 +30,7 @@ import publicCategoriesRoutes from "./routes/publicCategories.js";
 import publicTestsRoutes from "./routes/publicTests.js";
 import premiumTestSectionRoutes from "./routes/premiumTestSection.js";
 import publicStatsRoutes from "./routes/publicStats.js";
+import publicVisitTrackingRoutes from "./routes/publicVisitTracking.js";
 
 // Part 4 (Prompt 01) admin test management router
 import adminTestsRoutes from "./routes/adminTests.js";
@@ -286,6 +287,10 @@ app.use("/api/tests",         publicTestsRoutes);
 // Premium test engine (MCQs, submit, review require userProtect)
 app.use("/api/tests",         premiumTestSectionRoutes);
 app.use("/api/stats",         publicStatsRoutes);
+// Anonymous page-view logging (homepage + category pages) that feeds the
+// admin dashboard's Visitor Stats panel — see routes/adminDashboard.js
+// GET /api/admin/visit-stats.
+app.use("/api/visits",        publicVisitTrackingRoutes);
 app.use("/api/user/auth",    userAuthRoutes);
 app.use("/api/admin/users",  premiumUserRoutes);
 
