@@ -14,9 +14,9 @@
  *   3. Two-column body — Free (left) / Premium (right), each with its own
  *      glassmorphism subgroup rail ("All Tests" + every subgroup) and its
  *      own responsive test-card grid with client-side "Load more" paging.
- *      Columns stack on mobile (Premium first, then Free — unchanged from
- *      before), sit side-by-side via `md:order-*` from md breakpoint up
- *      (Free left / Premium right) with a hairline divider between them.
+ *      Same order at every breakpoint: Free stacks on top on mobile and
+ *      sits on the left from md up; Premium is below/right of it, with a
+ *      hairline divider between them on desktop.
  *
  * Data/behaviour preserved from the previous version:
  *   - Same two fetches: /custom-tests/:catSlug (premium) and
@@ -552,20 +552,18 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
       {/* ══════════════════════ HERO ══════════════════════ */}
       <div className="relative mb-10">
         <div className="flex flex-col md:flex-row items-center md:items-stretch justify-center gap-4 md:gap-0 text-center">
-          {/* Premium count — mobile: stacks first (above title), unchanged.
-              Desktop: pushed to the right flank via order-3, tying to the
-              gold column that's now on the right below. */}
-          <div className="md:order-3 md:flex-1 md:flex md:items-center md:justify-start md:pl-6">
-            <div className="inline-flex items-center gap-2 rounded-2xl border border-accent/30 dark:border-amber-700/30 bg-accent-light/70 dark:bg-amber-900/20 backdrop-blur-sm px-4 py-2">
-              <span className="w-2 h-2 rounded-full bg-accent" />
-              <span className="text-xs font-bold text-accent-darker dark:text-amber-300">
-                Premium{!groupsLoading && <> · {premiumCount}</>}
+          {/* Free count — left/first on both mobile and desktop */}
+          <div className="md:flex-1 md:flex md:items-center md:justify-end md:pr-6">
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-success/30 dark:border-green-700/30 bg-success-light/70 dark:bg-green-900/20 backdrop-blur-sm px-4 py-2">
+              <span className="w-2 h-2 rounded-full bg-success" />
+              <span className="text-xs font-bold text-success-darker dark:text-green-300">
+                Free{!freeGroupsLoading && <> · {freeCount}</>}
               </span>
             </div>
           </div>
 
           {/* Center — category title, the primary focus */}
-          <div className="md:order-2 md:px-8">
+          <div className="md:px-8">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand dark:text-blue-400 mb-1.5">
               Mock Test Hub
             </p>
@@ -578,14 +576,12 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
             )}
           </div>
 
-          {/* Free count — mobile: stacks last (below title), unchanged.
-              Desktop: pulled to the left flank via order-1, tying to the
-              green column that's now on the left below. */}
-          <div className="md:order-1 md:flex-1 md:flex md:items-center md:justify-end md:pr-6">
-            <div className="inline-flex items-center gap-2 rounded-2xl border border-success/30 dark:border-green-700/30 bg-success-light/70 dark:bg-green-900/20 backdrop-blur-sm px-4 py-2">
-              <span className="w-2 h-2 rounded-full bg-success" />
-              <span className="text-xs font-bold text-success-darker dark:text-green-300">
-                Free{!freeGroupsLoading && <> · {freeCount}</>}
+          {/* Premium count — right/last on both mobile and desktop */}
+          <div className="md:flex-1 md:flex md:items-center md:justify-start md:pl-6">
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-accent/30 dark:border-amber-700/30 bg-accent-light/70 dark:bg-amber-900/20 backdrop-blur-sm px-4 py-2">
+              <span className="w-2 h-2 rounded-full bg-accent" />
+              <span className="text-xs font-bold text-accent-darker dark:text-amber-300">
+                Premium{!groupsLoading && <> · {premiumCount}</>}
               </span>
             </div>
           </div>
@@ -638,35 +634,11 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
       </div>
 
       {/* ══════════════════ TWO-COLUMN BODY ══════════════════ */}
-      {/* DOM order stays Premium-then-Free so mobile stacking is unchanged
-          (Premium on top); `md:order-*` is what actually swaps them to
-          Free-left / Premium-right on desktop. */}
+      {/* Free first (top on mobile, left on desktop), Premium second
+          (bottom on mobile, right on desktop) — same order at every
+          breakpoint, so plain DOM order is enough here. */}
       <div className="flex flex-col md:flex-row gap-8 md:gap-0">
-        <div className="md:order-3 md:pl-8 flex-1 min-w-0">
-          <TestColumn
-            theme="premium"
-            loading={groupsLoading}
-            groups={groups}
-            activeId={activeGroup}
-            onSelectGroup={setActiveGroup}
-            isSearchActive={isSearchActive}
-            searchLoading={searchLoading}
-            searchResults={premiumSearchResults}
-            sortBy={sortBy}
-            visibleCount={visiblePremium}
-            onLoadMore={() => setVisiblePremium((v) => v + PAGE_SIZE)}
-            onStartTest={handleStartPremiumTest}
-            onLockedTest={handleLockedTest}
-            emptyLabel="Tests for this category are coming soon."
-            notLoggedInBanner={notLoggedInBanner}
-          />
-        </div>
-
-        {/* Divider — vertical on desktop, horizontal on mobile */}
-        <div className="hidden md:order-2 md:block w-px bg-border dark:bg-dark-border" />
-        <div className="md:hidden h-px bg-border dark:bg-dark-border" />
-
-        <div className="md:order-1 md:pr-8 flex-1 min-w-0">
+        <div className="md:pr-8 flex-1 min-w-0">
           <TestColumn
             theme="free"
             loading={freeGroupsLoading}
@@ -683,6 +655,30 @@ export default function CustomCategoryLayout({ category, user, openLoginModal, o
             onLockedTest={handleLockedTest}
             emptyLabel="No free tests available for this category yet."
             notLoggedInBanner={null}
+          />
+        </div>
+
+        {/* Divider — vertical on desktop, horizontal on mobile */}
+        <div className="hidden md:block w-px bg-border dark:bg-dark-border" />
+        <div className="md:hidden h-px bg-border dark:bg-dark-border" />
+
+        <div className="md:pl-8 flex-1 min-w-0">
+          <TestColumn
+            theme="premium"
+            loading={groupsLoading}
+            groups={groups}
+            activeId={activeGroup}
+            onSelectGroup={setActiveGroup}
+            isSearchActive={isSearchActive}
+            searchLoading={searchLoading}
+            searchResults={premiumSearchResults}
+            sortBy={sortBy}
+            visibleCount={visiblePremium}
+            onLoadMore={() => setVisiblePremium((v) => v + PAGE_SIZE)}
+            onStartTest={handleStartPremiumTest}
+            onLockedTest={handleLockedTest}
+            emptyLabel="Tests for this category are coming soon."
+            notLoggedInBanner={notLoggedInBanner}
           />
         </div>
       </div>
