@@ -177,6 +177,7 @@ if (process.env.NODE_ENV !== "production") {
 // ── Middleware ────────────────────────────────────────────────
 const allowedOrigins = [
   "http://localhost:5173",
+  "https://graceful-twilight-deb501.netlify.app",
   "https://jobsmocktests.netlify.app",
 ];
 
@@ -187,6 +188,13 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
+      // Log the exact rejected origin string — a static array check like
+      // this either always passes or always fails for a given origin, so
+      // if requests that look identical from the browser start failing,
+      // this line shows precisely what didn't match (a Netlify deploy
+      // preview subdomain, http vs https, a trailing slash, etc.)
+      // instead of us having to guess from generic error logs.
+      console.error(`[CORS] Rejected origin: "${origin}"`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
